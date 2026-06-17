@@ -1,4 +1,4 @@
-import { UserProgress, DailyTask, ScoreRecord, Item, PhraseRecord, ChildProfile } from '../types';
+import { UserProgress, DailyTask, ScoreRecord, Item, PhraseRecord, ChildProfile, WeeklyGoal } from '../types';
 
 const PROFILES_KEY = 'english_rhythm_profiles';
 const ACTIVE_PROFILE_KEY = 'english_rhythm_active_profile';
@@ -104,15 +104,82 @@ export const setActiveProfileId = (id: string): void => {
 export const createProfile = (name: string): ChildProfile => {
   const profiles = loadProfiles();
   const avatar = avatars[profiles.length % avatars.length];
+  const today = new Date().toISOString().split('T')[0];
+  const monday = getWeekStart(today);
   const profile: ChildProfile = {
     id: 'child_' + Date.now(),
     name,
     avatar,
-    createdAt: new Date().toISOString().split('T')[0]
+    createdAt: today,
+    weeklyGoal: { wordTarget: 5, phraseTarget: 5, weekStart: monday, wordDone: 0, phraseDone: 0 }
   };
   profiles.push(profile);
   saveProfiles(profiles);
   return profile;
+};
+
+function getWeekStart(dateStr: string): string {
+  const d = new Date(dateStr);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d.setDate(diff));
+  return monday.toISOString().split('T')[0];
+}
+
+export const updateWeeklyGoal = (profileId: string | null, goal: Partial<WeeklyGoal>): void => {
+  const profiles = loadProfiles();
+  if (!profileId) return;
+  const idx = profiles.findIndex(p => p.id === profileId);
+  if (idx < 0) return;
+  const p = profiles[idx];
+  const ws = getWeekStart(new Date().toISOString().split('T')[0]);
+  if (p.weeklyGoal.weekStart !== ws) {
+    p.weeklyGoal = { ...p.weeklyGoal, weekStart: ws, wordDone: 0, phraseDone: 0 };
+  }
+  profiles[idx] = { ...p, weeklyGoal: { ...p.weeklyGoal, ...goal } };
+  saveProfiles(profiles);
+};
+
+export const incrementWeeklyGoal = (profileId: string | null, type: 'word' | 'phrase'): void => {
+  if (!profileId) return;
+  const profiles = loadProfiles();
+  const idx = profiles.findIndex(p => p.id === profileId);
+  if (idx < 0) return;
+  const p = profiles[idx];
+  const ws = getWeekStart(new Date().toISOString().split('T')[0]);
+  if (p.weeklyGoal.weekStart !== ws) {
+    p.weeklyGoal = { ...p.weeklyGoal, weekStart: ws, wordDone: 0, phraseDone: 0 };
+  }
+  if (type === 'word') {
+    p.weeklyGoal.wordDone++;
+  } else {
+    p.weeklyGoal.phraseDone++;
+  }
+  profiles[idx] = p;
+  saveProfiles(profiles);
+};
+
+export const getProfileGoal = (profileId: string | null): WeeklyGoal | null => {
+  if (!profileId) return null;
+  const profiles = loadProfiles();
+  const p = profiles.find(p => p.id === profileId);
+  if (!p) return null;
+  const ws = getWeekStart(new Date().toISOString().split('T')[0]);
+  if (p.weeklyGoal.weekStart !== ws) {
+    return { ...p.weeklyGoal, weekStart: ws, wordDone: 0, phraseDone: 0 };
+  }
+  return p.weeklyGoal;
+};
+
+export const getAllProfileProgress = (): { profileId: string; name: string; avatar: string; goal: WeeklyGoal; progress: UserProgress }[] => {
+  const profiles = loadProfiles();
+  return profiles.map(p => ({
+    profileId: p.id,
+    name: p.name,
+    avatar: p.avatar,
+    goal: p.weeklyGoal,
+    progress: loadProgress(p.id)
+  }));
 };
 
 export const deleteProfile = (id: string): void => {
@@ -158,6 +225,12 @@ export const loadProgress = (profileId: string | null = null): UserProgress => {
       progress.scoreHistory = (progress.scoreHistory || []).map(r => ({
         ...r,
         type: r.type || 'word'
+      }));
+      progress.phraseHistory = progress.phraseHistory.map(r => ({
+        ...r,
+        sessionId: r.sessionId || '',
+        failReasons: r.failReasons || [],
+        mastered: r.mastered !== undefined ? r.mastered : r.accuracy >= 60
       }));
       
       return progress;
@@ -282,15 +355,25 @@ export const addPhraseRecord = (
   translation: string,
   accuracy: number,
   score: number,
-  profileId: string | null = null
+  profileId: string | null,
+  sessionId: string = '',
+  failReasons: string[] = []
 ): UserProgress => {
+  const existing = (progress.phraseHistory || []).find(
+    r => r.sessionId && r.sessionId === sessionId && sessionId !== ''
+  );
+  if (existing) return progress;
+
   const record: PhraseRecord = {
     date: new Date().toISOString().split('T')[0],
     phraseId,
     phrase,
     translation,
     accuracy,
-    score
+    score,
+    sessionId,
+    failReasons,
+    mastered: accuracy >= 60
   };
 
   let updated = {

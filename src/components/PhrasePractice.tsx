@@ -7,9 +7,42 @@ import { calculateHitResult, calculateAccuracy, getResultText, getResultColor } 
 import { HitNote } from '../types';
 import './PhrasePractice.css';
 
+type ReviewGroup = 'all' | 'stress' | 'slow' | 'miss';
+
+const FAIL_LABELS: Record<string, string> = {
+  stress: '🎯 漏重音',
+  slow: '🐢 节拍慢半拍',
+  miss: '❌ 连续miss'
+};
+
+function analyzeFailReasons(notes: HitNote[], phrase: Phrase | null): string[] {
+  const reasons: string[] = [];
+  if (!phrase) return reasons;
+
+  const stressNotes = notes.filter(n => n.isStress);
+  const stressMissed = stressNotes.filter(n => n.result === 'miss' || n.result === 'good');
+  if (stressMissed.length > 0) reasons.push('stress');
+
+  const missNotes = notes.filter(n => n.result === 'miss');
+  let consecutiveMiss = 0;
+  for (const n of notes) {
+    if (n.result === 'miss') {
+      consecutiveMiss++;
+      if (consecutiveMiss >= 2) { reasons.push('miss'); break; }
+    } else {
+      consecutiveMiss = 0;
+    }
+  }
+
+  const goodNotes = notes.filter(n => n.result === 'good');
+  if (goodNotes.length > notes.length * 0.5) reasons.push('slow');
+
+  return [...new Set(reasons)];
+}
+
 const PhrasePractice: React.FC = () => {
   const { setCurrentView, completePhrase, removePhraseFromReview, progress, updateTask, addToWrongWords } = useGame();
-  
+
   const [selectedPhrase, setSelectedPhrase] = useState<Phrase | null>(null);
   const [phase, setPhase] = useState<'select' | 'ready' | 'playing' | 'result'>('select');
   const [notes, setNotes] = useState<HitNote[]>([]);
@@ -18,8 +51,11 @@ const PhrasePractice: React.FC = () => {
   const [bpm] = useState(90);
   const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null);
   const [isReplaying, setIsReplaying] = useState(false);
-  const [showReview, setShowReview] = useState(false);
+  const [reviewFilter, setReviewFilter] = useState<ReviewGroup>('all');
+  const [reviewTab, setReviewTab] = useState(false);
 
+  const sessionIdRef = useRef<string>('');
+  const savedRef = useRef<boolean>(false);
   const animationRef = useRef<number>();
   const startTimeRef = useRef<number>(0);
   const beatTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
@@ -28,6 +64,23 @@ const PhrasePractice: React.FC = () => {
   const reviewPhrases = progress.phraseReview
     .map(id => getPhraseById(id))
     .filter((p): p is Phrase => p !== undefined);
+
+  const reviewWithReasons = progress.phraseReview.map(id => {
+    const phrase = getPhraseById(id);
+    const records = progress.phraseHistory.filter(r => r.phraseId === id);
+    const lastRecord = records[records.length - 1];
+    return { id, phrase, reasons: lastRecord?.failReasons || [] };
+  });
+
+  const groupedReview: Record<string, typeof reviewWithReasons> = {
+    stress: reviewWithReasons.filter(r => r.reasons.includes('stress')),
+    slow: reviewWithReasons.filter(r => r.reasons.includes('slow')),
+    miss: reviewWithReasons.filter(r => r.reasons.includes('miss')),
+  };
+
+  const filteredReviewIds = reviewFilter === 'all'
+    ? progress.phraseReview
+    : (groupedReview[reviewFilter] || []).map(r => r.id);
 
   const generateNotes = useCallback((phrase: Phrase): HitNote[] => {
     const beatInterval = 60 / bpm;
@@ -44,6 +97,8 @@ const PhrasePractice: React.FC = () => {
     const newNotes = generateNotes(phrase);
     setNotes(newNotes);
     currentNoteIndexRef.current = 0;
+    sessionIdRef.current = 'ps_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    savedRef.current = false;
     setPhase('ready');
   };
 
@@ -180,15 +235,6 @@ const PhrasePractice: React.FC = () => {
     }
   };
 
-  const handleRetry = () => {
-    if (!selectedPhrase) return;
-    const newNotes = generateNotes(selectedPhrase);
-    setNotes(newNotes);
-    currentNoteIndexRef.current = 0;
-    setRecordingBlob(null);
-    setPhase('ready');
-  };
-
   const handleBack = () => {
     if (beatTimeoutRef.current) clearTimeout(beatTimeoutRef.current);
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
@@ -199,12 +245,26 @@ const PhrasePractice: React.FC = () => {
 
   const accuracy = calculateAccuracy(notes);
 
-  const handlePhraseComplete = () => {
-    if (!selectedPhrase) return;
-    completePhrase(selectedPhrase.id, selectedPhrase.phrase, selectedPhrase.translation, accuracy, 0);
-    if (accuracy < 60) {
-      selectedPhrase.wordIds.forEach(wid => addToWrongWords(wid));
+  useEffect(() => {
+    if (phase === 'result' && selectedPhrase && !savedRef.current) {
+      savedRef.current = true;
+      const failReasons = analyzeFailReasons(notes, selectedPhrase);
+      completePhrase(selectedPhrase.id, selectedPhrase.phrase, selectedPhrase.translation, accuracy, 0, sessionIdRef.current, failReasons);
+      if (accuracy < 60) {
+        selectedPhrase.wordIds.forEach(wid => addToWrongWords(wid));
+      }
     }
+  }, [phase, selectedPhrase, accuracy, notes, completePhrase, addToWrongWords]);
+
+  const handleRetry = () => {
+    if (!selectedPhrase) return;
+    const newNotes = generateNotes(selectedPhrase);
+    setNotes(newNotes);
+    currentNoteIndexRef.current = 0;
+    sessionIdRef.current = 'ps_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    savedRef.current = false;
+    setRecordingBlob(null);
+    setPhase('ready');
   };
 
   const renderNotes = () => {
@@ -255,20 +315,20 @@ const PhrasePractice: React.FC = () => {
         <div className="phrase-select-area">
           <div className="phrase-tabs">
             <button 
-              className={`phrase-tab ${!showReview ? 'active' : ''}`}
-              onClick={() => setShowReview(false)}
+              className={`phrase-tab ${!reviewTab ? 'active' : ''}`}
+              onClick={() => { setReviewTab(false); setReviewFilter('all'); }}
             >
               📖 全部短语
             </button>
             <button 
-              className={`phrase-tab review-tab ${showReview ? 'active' : ''}`}
-              onClick={() => setShowReview(true)}
+              className={`phrase-tab review-tab ${reviewTab ? 'active' : ''}`}
+              onClick={() => setReviewTab(true)}
             >
               🔄 待复习 ({reviewPhrases.length})
             </button>
           </div>
 
-          {!showReview ? (
+          {!reviewTab ? (
             <div className="phrase-list">
               <p className="phrase-intro">选择一个短语，练习连读发音！把多个单词连起来读，更自然更流利。</p>
               {phrases.map(phrase => {
@@ -314,33 +374,69 @@ const PhrasePractice: React.FC = () => {
                   <p className="empty-hint">低分短语会自动进入复习列表</p>
                 </div>
               ) : (
-                reviewPhrases.map(phrase => (
-                  <div key={phrase.id} className="phrase-card review-card" onClick={() => handleSelectPhrase(phrase)}>
-                    <div className="phrase-main">
-                      <span className="phrase-text">{phrase.phrase}</span>
-                      <span className="phrase-translation">{phrase.translation}</span>
-                    </div>
-                    <div className="phrase-syllables">
-                      {phrase.syllables.map((syl, i) => (
-                        <span key={i} className={`phrase-syl ${phrase.stressIndices.includes(i) ? 'stress' : ''}`}>
-                          {syl}
-                        </span>
-                      ))}
-                    </div>
-                    <button className="phrase-listen-btn" onClick={(e) => {
-                      e.stopPropagation();
-                      audioManager.speak(phrase.phrase, 0.8);
-                    }}>
-                      🔊 试听
-                    </button>
-                    <button className="phrase-pass-btn" onClick={(e) => {
-                      e.stopPropagation();
-                      removePhraseFromReview(phrase.id);
-                    }}>
-                      ✅ 标记达标
-                    </button>
+                <>
+                  <div className="review-filter-tabs">
+                    {(['all', 'stress', 'slow', 'miss'] as ReviewGroup[]).map(g => {
+                      const count = g === 'all' ? reviewPhrases.length : (groupedReview[g] || []).length;
+                      const label = g === 'all' ? '📋 全部' : FAIL_LABELS[g];
+                      return (
+                        <button
+                          key={g}
+                          className={`rfilter-tab ${reviewFilter === g ? 'active' : ''}`}
+                          onClick={() => setReviewFilter(g)}
+                        >
+                          {label} ({count})
+                        </button>
+                      );
+                    })}
                   </div>
-                ))
+
+                  {filteredReviewIds.length === 0 ? (
+                    <div className="review-empty">
+                      <p className="empty-hint">该分类下暂无待复习短语</p>
+                    </div>
+                  ) : (
+                    filteredReviewIds.map(id => {
+                      const phrase = getPhraseById(id);
+                      if (!phrase) return null;
+                      const rw = reviewWithReasons.find(r => r.id === id);
+                      return (
+                        <div key={id} className="phrase-card review-card" onClick={() => handleSelectPhrase(phrase)}>
+                          <div className="phrase-main">
+                            <span className="phrase-text">{phrase.phrase}</span>
+                            <span className="phrase-translation">{phrase.translation}</span>
+                          </div>
+                          <div className="phrase-syllables">
+                            {phrase.syllables.map((syl, i) => (
+                              <span key={i} className={`phrase-syl ${phrase.stressIndices.includes(i) ? 'stress' : ''}`}>
+                                {syl}
+                              </span>
+                            ))}
+                          </div>
+                          {rw && rw.reasons.length > 0 && (
+                            <div className="review-reasons">
+                              {rw.reasons.map(r => (
+                                <span key={r} className={`fail-tag small ${r}`}>{FAIL_LABELS[r]}</span>
+                              ))}
+                            </div>
+                          )}
+                          <button className="phrase-listen-btn" onClick={(e) => {
+                            e.stopPropagation();
+                            audioManager.speak(phrase.phrase, 0.8);
+                          }}>
+                            🔊 试听
+                          </button>
+                          <button className="phrase-pass-btn" onClick={(e) => {
+                            e.stopPropagation();
+                            removePhraseFromReview(phrase.id);
+                          }}>
+                            ✅ 标记达标
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </>
               )}
             </div>
           )}
@@ -439,6 +535,18 @@ const PhrasePractice: React.FC = () => {
               <div className="review-passed">🎉 达标！已从复习列表移出</div>
             )}
 
+            {accuracy < 60 && (() => {
+              const reasons = analyzeFailReasons(notes, selectedPhrase);
+              return reasons.length > 0 ? (
+                <div className="fail-reasons">
+                  <span className="fail-label">薄弱点：</span>
+                  {reasons.map(r => (
+                    <span key={r} className={`fail-tag ${r}`}>{FAIL_LABELS[r]}</span>
+                  ))}
+                </div>
+              ) : null;
+            })()}
+
             <div className="result-notes">
               {notes.map((note, i) => (
                 <span key={i} className={`result-note ${note.result || ''} ${note.isStress ? 'stress' : ''}`}>
@@ -458,7 +566,7 @@ const PhrasePractice: React.FC = () => {
 
             <div className="result-buttons">
               <button className="btn btn-warning" onClick={handleRetry}>🔄 再练一次</button>
-              <button className="btn btn-secondary" onClick={() => { handlePhraseComplete(); handleBack(); }}>选择其他短语</button>
+              <button className="btn btn-secondary" onClick={handleBack}>选择其他短语</button>
             </div>
           </div>
         </div>

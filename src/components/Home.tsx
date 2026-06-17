@@ -3,7 +3,7 @@ import { useGame } from '../context/GameContext';
 import './Home.css';
 
 const Home: React.FC = () => {
-  const { setCurrentView, progress, items, activeProfile } = useGame();
+  const { setCurrentView, progress, items, activeProfile, weeklyGoal } = useGame();
 
   const formatTime = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
@@ -59,6 +59,24 @@ const Home: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {weeklyGoal && (
+        <div className="home-goal-bar">
+          <span className="home-goal-label">📅 本周目标</span>
+          <div className="home-goal-item">
+            <span>🎮 {weeklyGoal.wordDone}/{weeklyGoal.wordTarget}</span>
+            <div className="home-goal-track">
+              <div className="home-goal-fill word" style={{ width: `${weeklyGoal.wordTarget > 0 ? Math.min(100, Math.round(weeklyGoal.wordDone / weeklyGoal.wordTarget * 100)) : 0}%` }} />
+            </div>
+          </div>
+          <div className="home-goal-item">
+            <span>🔗 {weeklyGoal.phraseDone}/{weeklyGoal.phraseTarget}</span>
+            <div className="home-goal-track">
+              <div className="home-goal-fill phrase" style={{ width: `${weeklyGoal.phraseTarget > 0 ? Math.min(100, Math.round(weeklyGoal.phraseDone / weeklyGoal.phraseTarget * 100)) : 0}%` }} />
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="menu-grid">
         <button className="menu-card primary" onClick={() => setCurrentView('levels')}>

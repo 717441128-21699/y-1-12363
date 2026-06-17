@@ -272,6 +272,215 @@
   background: #fce4ec;
 }
 
+.weekly-goal-card {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--dark);
+  border-radius: 15px;
+  padding: 15px 20px;
+  margin-bottom: 20px;
+}
+
+.wg-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+.wg-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.wg-label {
+  min-width: 90px;
+  font-size: 14px;
+}
+
+.wg-bar-wrap {
+  flex: 1;
+  height: 12px;
+  background: #eee;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.wg-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), #FF8E8E);
+  border-radius: 6px;
+  transition: width 0.5s ease;
+}
+
+.wg-bar.phrase {
+  background: linear-gradient(90deg, var(--secondary), #6EDDD4);
+}
+
+.wg-pct {
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--primary);
+  min-width: 50px;
+  text-align: right;
+}
+
+.compare-section {
+  padding: 5px;
+}
+
+.compare-header-row {
+  margin-bottom: 15px;
+}
+
+.compare-title {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.compare-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.compare-card {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--dark);
+  border-radius: 15px;
+  padding: 18px;
+  border: 2px solid transparent;
+}
+
+.compare-card.current {
+  border-color: var(--success);
+}
+
+.cc-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cc-avatar {
+  font-size: 32px;
+}
+
+.cc-name {
+  font-size: 18px;
+  font-weight: bold;
+  flex: 1;
+}
+
+.cc-active-badge {
+  background: var(--success);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.cc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.cc-label {
+  color: #666;
+}
+
+.cc-val {
+  font-weight: bold;
+}
+
+.cc-goal {
+  border-top: 1px solid #eee;
+  padding-top: 6px;
+  margin-top: 4px;
+}
+
+.cc-alert {
+  margin-top: 8px;
+  min-height: 22px;
+}
+
+.cc-low-activity {
+  background: #FFF3E0;
+  color: #E65100;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.compare-trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 15px;
+}
+
+.compare-trend-item {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--dark);
+  border-radius: 15px;
+  padding: 15px;
+}
+
+.ct-name {
+  font-weight: bold;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.ct-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ct-type {
+  min-width: 60px;
+  font-size: 13px;
+  color: #666;
+}
+
+.ct-bars {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 60px;
+}
+
+.ct-bar {
+  flex: 1;
+  background: linear-gradient(180deg, var(--primary), #FF8E8E);
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+}
+
+.ct-bar.phrase {
+  background: linear-gradient(180deg, var(--secondary), #6EDDD4);
+}
+
+.history-fail-reasons {
+  display: flex;
+  gap: 4px;
+  margin-left: 5px;
+}
+
 .level-detail-card {
   background: rgba(255, 255, 255, 0.95);
   color: var(--dark);

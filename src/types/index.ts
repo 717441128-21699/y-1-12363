@@ -40,6 +40,9 @@ export interface PhraseRecord {
   translation: string;
   accuracy: number;
   score: number;
+  sessionId: string;
+  failReasons: string[];
+  mastered: boolean;
 }
 
 export interface UserProgress {
@@ -79,6 +82,15 @@ export interface ChildProfile {
   name: string;
   avatar: string;
   createdAt: string;
+  weeklyGoal: WeeklyGoal;
+}
+
+export interface WeeklyGoal {
+  wordTarget: number;
+  phraseTarget: number;
+  weekStart: string;
+  wordDone: number;
+  phraseDone: number;
 }
 
 export interface Item {

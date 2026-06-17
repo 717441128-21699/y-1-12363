@@ -573,3 +573,73 @@
   display: flex;
   flex-direction: column;
 }
+
+.review-filter-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.rfilter-tab {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: bold;
+  font-family: inherit;
+}
+
+.rfilter-tab.active {
+  background: var(--primary);
+}
+
+.review-reasons {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.fail-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: bold;
+  margin-right: 4px;
+}
+
+.fail-tag.stress {
+  background: #FFF3E0;
+  color: #E65100;
+}
+
+.fail-tag.slow {
+  background: #E3F2FD;
+  color: #1565C0;
+}
+
+.fail-tag.miss {
+  background: #FCE4EC;
+  color: #C62828;
+}
+
+.fail-tag.small {
+  padding: 2px 7px;
+  font-size: 11px;
+}
+
+.fail-reasons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  justify-content: center;
+}
+
+.fail-label {
+  font-size: 14px;
+  opacity: 0.8;
+}

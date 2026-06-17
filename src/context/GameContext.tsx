@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { UserProgress, Item, GameState, HitNote, ChildProfile } from '../types';
-import { loadProgress, saveProgress, updatePlayTime, updateLevelStars, addFavoriteWord, removeFavoriteWord, addWrongWord, removeWrongWord, addScoreRecord, addPhraseRecord, removeFromPhraseReview, updateDailyTask, claimDailyTask, defaultItems, loadProfiles, saveProfiles, getActiveProfileId, setActiveProfileId, createProfile, deleteProfile } from '../utils/storage';
+import { UserProgress, Item, GameState, HitNote, ChildProfile, WeeklyGoal } from '../types';
+import { loadProgress, saveProgress, updatePlayTime, updateLevelStars, addFavoriteWord, removeFavoriteWord, addWrongWord, removeWrongWord, addScoreRecord, addPhraseRecord, removeFromPhraseReview, updateDailyTask, claimDailyTask, defaultItems, loadProfiles, saveProfiles, getActiveProfileId, setActiveProfileId, createProfile, deleteProfile, updateWeeklyGoal, incrementWeeklyGoal, getProfileGoal, getAllProfileProgress } from '../utils/storage';
 import { audioManager } from '../utils/audio';
 
 interface GameContextType {
@@ -15,7 +15,7 @@ interface GameContextType {
   addToWrongWords: (wordId: string) => void;
   removeFromWrongWords: (wordId: string) => void;
   completeLevel: (levelId: number, stars: number, score: number, accuracy: number) => void;
-  completePhrase: (phraseId: string, phrase: string, translation: string, accuracy: number, score: number) => void;
+  completePhrase: (phraseId: string, phrase: string, translation: string, accuracy: number, score: number, sessionId: string, failReasons: string[]) => void;
   removePhraseFromReview: (phraseId: string) => void;
   updateTask: (taskId: string, increment: number) => void;
   claimTask: (taskId: string) => void;
@@ -32,6 +32,9 @@ interface GameContextType {
   switchProfile: (id: string) => void;
   addProfile: (name: string) => ChildProfile;
   removeProfile: (id: string) => void;
+  weeklyGoal: WeeklyGoal | null;
+  setWeeklyGoal: (goal: Partial<WeeklyGoal>) => void;
+  allProfileData: () => { profileId: string; name: string; avatar: string; goal: WeeklyGoal; progress: UserProgress }[];
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -66,10 +69,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentView, setCurrentView] = useState<string>('home');
   const [hitNotes, setHitNotes] = useState<HitNote[]>([]);
   const [allLevelNotes, setAllLevelNotes] = useState<HitNote[]>([]);
+  const [weeklyGoal, setWeeklyGoalState] = useState<WeeklyGoal | null>(() => getProfileGoal(getActiveProfileId()));
   const playTimeRef = useRef<number>(0);
   const timerRef = useRef<number | null>(null);
 
   const activeProfile = profiles.find(p => p.id === activeProfileId) || null;
+
+  const refreshWeeklyGoal = useCallback(() => {
+    setWeeklyGoalState(getProfileGoal(activeProfileId));
+  }, [activeProfileId]);
 
   useEffect(() => {
     audioManager.init();
@@ -119,14 +127,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updated = addScoreRecord(updated, levelId, score, accuracy, 'word', activeProfileId);
       return updated;
     });
+    incrementWeeklyGoal(activeProfileId, 'word');
   }, [activeProfileId]);
 
-  const completePhrase = useCallback((phraseId: string, phrase: string, translation: string, accuracy: number, score: number) => {
+  const completePhrase = useCallback((phraseId: string, phrase: string, translation: string, accuracy: number, score: number, sessionId: string, failReasons: string[]) => {
     setProgress(prev => {
-      let updated = addPhraseRecord(prev, phraseId, phrase, translation, accuracy, score, activeProfileId);
+      let updated = addPhraseRecord(prev, phraseId, phrase, translation, accuracy, score, activeProfileId, sessionId, failReasons);
       updated = addScoreRecord(updated, 0, score, accuracy, 'phrase', activeProfileId);
       return updated;
     });
+    incrementWeeklyGoal(activeProfileId, 'phrase');
   }, [activeProfileId]);
 
   const removePhraseFromReview = useCallback((phraseId: string) => {
@@ -181,6 +191,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProgress(newProgress);
     setGameState(initialGameState);
     setItems(defaultItems.map(i => ({ ...i })));
+    setWeeklyGoalState(getProfileGoal(id));
     setCurrentView('home');
   }, []);
 
@@ -204,6 +215,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
   }, [activeProfileId, switchProfile]);
+
+  const setWeeklyGoalFn = useCallback((goal: Partial<WeeklyGoal>) => {
+    updateWeeklyGoal(activeProfileId, goal);
+    setWeeklyGoalState(getProfileGoal(activeProfileId));
+  }, [activeProfileId]);
+
+  const allProfileData = useCallback(() => {
+    return getAllProfileProgress();
+  }, []);
 
   return (
     <GameContext.Provider
@@ -235,7 +255,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activeProfile,
         switchProfile,
         addProfile,
-        removeProfile: removeProfileFn
+        removeProfile: removeProfileFn,
+        weeklyGoal,
+        setWeeklyGoal: setWeeklyGoalFn,
+        allProfileData
       }}
     >
       {children}
