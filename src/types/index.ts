@@ -1,0 +1,79 @@
+export interface Word {
+  id: string;
+  word: string;
+  phonetic: string;
+  translation: string;
+  syllables: string[];
+  stressIndex: number;
+  category: string;
+  difficulty: number;
+}
+
+export interface Level {
+  id: number;
+  name: string;
+  theme: string;
+  wordIds: string[];
+  bpm: number;
+  speed: number;
+  starThreshold: number[];
+  unlocked: boolean;
+}
+
+export interface GameState {
+  currentLevel: number | null;
+  currentWordIndex: number;
+  score: number;
+  combo: number;
+  maxCombo: number;
+  stars: number;
+  isPlaying: boolean;
+  isRecording: boolean;
+  speedMultiplier: number;
+  mistakes: string[];
+}
+
+export interface UserProgress {
+  totalPlayTime: number;
+  lastPlayDate: string;
+  levelStars: Record<number, number>;
+  favoriteWords: string[];
+  wrongWords: string[];
+  dailyTasks: DailyTask[];
+  scoreHistory: ScoreRecord[];
+  streakDays: number;
+}
+
+export interface DailyTask {
+  id: string;
+  title: string;
+  description: string;
+  target: number;
+  current: number;
+  reward: number;
+  completed: boolean;
+}
+
+export interface ScoreRecord {
+  date: string;
+  levelId: number;
+  score: number;
+  accuracy: number;
+}
+
+export interface Item {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  count: number;
+}
+
+export type BeatResult = 'perfect' | 'good' | 'miss';
+
+export interface HitNote {
+  syllable: string;
+  time: number;
+  result: BeatResult | null;
+  isStress: boolean;
+}

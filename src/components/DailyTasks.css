@@ -1,0 +1,235 @@
+.tasks-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  color: white;
+}
+
+.tasks-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.tasks-header h2 {
+  font-size: 28px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+.back-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.progress-card {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  padding: 20px;
+  margin-bottom: 20px;
+  backdrop-filter: blur(10px);
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.progress-title {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.progress-count {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--accent);
+}
+
+.progress-bar {
+  height: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--primary));
+  border-radius: 6px;
+  transition: width 0.5s ease;
+}
+
+.all-complete {
+  text-align: center;
+  margin-top: 15px;
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--accent);
+}
+
+.tasks-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.task-card {
+  background: white;
+  color: var(--dark);
+  border-radius: 15px;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  animation: slideIn 0.3s ease;
+}
+
+.task-card.completed {
+  background: linear-gradient(135deg, #E8F5E9, #C8E6C9);
+}
+
+.task-icon {
+  font-size: 32px;
+}
+
+.task-info {
+  flex: 1;
+}
+
+.task-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.task-desc {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 8px;
+}
+
+.task-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.task-progress-bar {
+  flex: 1;
+  height: 8px;
+  background: #eee;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.task-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--secondary), var(--primary));
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.task-progress-text {
+  font-size: 12px;
+  color: #888;
+  min-width: 50px;
+  text-align: right;
+}
+
+.task-reward {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.reward-label {
+  font-size: 12px;
+  color: #888;
+}
+
+.reward-value {
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--warning);
+}
+
+.claim-btn {
+  background: linear-gradient(135deg, var(--success), #58D68D);
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+  animation: pulse 2s ease infinite;
+}
+
+.streak-section {
+  display: flex;
+  gap: 15px;
+}
+
+.streak-card {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 15px;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.streak-icon {
+  font-size: 36px;
+}
+
+.streak-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.streak-label {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.streak-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--accent);
+}
+
+.tip-card {
+  flex: 2;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  padding: 15px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
