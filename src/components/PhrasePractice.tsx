@@ -523,7 +523,7 @@ const PhrasePractice: React.FC = () => {
             <h3>连读练习完成！</h3>
             <h2>{selectedPhrase.phrase}</h2>
             <p className="result-translation">{selectedPhrase.translation}</p>
-            
+
             <div className="result-accuracy">
               准确率: <span style={{ color: accuracy >= 80 ? 'var(--success)' : accuracy >= 60 ? 'var(--warning)' : 'var(--danger)' }}>{accuracy}%</span>
             </div>
@@ -535,16 +535,53 @@ const PhrasePractice: React.FC = () => {
               <div className="review-passed">🎉 达标！已从复习列表移出</div>
             )}
 
-            {accuracy < 60 && (() => {
+            {(() => {
               const reasons = analyzeFailReasons(notes, selectedPhrase);
-              return reasons.length > 0 ? (
-                <div className="fail-reasons">
-                  <span className="fail-label">薄弱点：</span>
-                  {reasons.map(r => (
-                    <span key={r} className={`fail-tag ${r}`}>{FAIL_LABELS[r]}</span>
-                  ))}
-                </div>
-              ) : null;
+              if (reasons.length === 0) return null;
+
+              const reasonDetails: Record<string, { icon: string; title: string; tip: string }> = {
+                stress: { icon: '🎯', title: '重音问题', tip: '重音音节要读得更重更长，注意突出' },
+                slow: { icon: '🐢', title: '节拍问题', tip: '整体节奏偏慢，试着加快一点点击速度' },
+                miss: { icon: '❌', title: '漏读问题', tip: '有连续漏点，试着更专注跟着节拍走' }
+              };
+
+              return (
+                <>
+                  <div className="practice-summary">
+                    <div className="summary-title">📝 本次练习小结</div>
+                    <div className="summary-items">
+                      {reasons.map(r => (
+                        <div key={r} className={`summary-item ${r}`}>
+                          <span className="summary-icon">{reasonDetails[r].icon}</span>
+                          <div className="summary-text">
+                            <div className="summary-title-small">{reasonDetails[r].title}</div>
+                            <div className="summary-tip">{reasonDetails[r].tip}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="quick-review-section">
+                    <div className="quick-review-title">⚡ 一键专项复习</div>
+                    <div className="quick-review-buttons">
+                      {reasons.map(r => (
+                        <button
+                          key={r}
+                          className={`quick-review-btn ${r}`}
+                          onClick={() => {
+                            setReviewTab(true);
+                            setReviewFilter(r as ReviewGroup);
+                            handleBack();
+                          }}
+                        >
+                          {FAIL_LABELS[r]} 专项
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              );
             })()}
 
             <div className="result-notes">

@@ -14,7 +14,7 @@ interface GameContextType {
   removeFromFavorites: (wordId: string) => void;
   addToWrongWords: (wordId: string) => void;
   removeFromWrongWords: (wordId: string) => void;
-  completeLevel: (levelId: number, stars: number, score: number, accuracy: number) => void;
+  completeLevel: (levelId: number, stars: number, score: number, accuracy: number, sessionId: string) => void;
   completePhrase: (phraseId: string, phrase: string, translation: string, accuracy: number, score: number, sessionId: string, failReasons: string[]) => void;
   removePhraseFromReview: (phraseId: string) => void;
   updateTask: (taskId: string, increment: number) => void;
@@ -121,13 +121,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProgress(prev => removeWrongWord(prev, wordId, activeProfileId));
   }, [activeProfileId]);
 
-  const completeLevel = useCallback((levelId: number, stars: number, score: number, accuracy: number) => {
+  const completeLevel = useCallback((levelId: number, stars: number, score: number, accuracy: number, sessionId: string) => {
     setProgress(prev => {
       let updated = updateLevelStars(prev, levelId, stars, activeProfileId);
       updated = addScoreRecord(updated, levelId, score, accuracy, 'word', activeProfileId);
       return updated;
     });
-    incrementWeeklyGoal(activeProfileId, 'word');
+    const newGoal = incrementWeeklyGoal(activeProfileId, 'word', sessionId);
+    if (newGoal) setWeeklyGoalState(newGoal);
   }, [activeProfileId]);
 
   const completePhrase = useCallback((phraseId: string, phrase: string, translation: string, accuracy: number, score: number, sessionId: string, failReasons: string[]) => {
@@ -136,7 +137,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updated = addScoreRecord(updated, 0, score, accuracy, 'phrase', activeProfileId);
       return updated;
     });
-    incrementWeeklyGoal(activeProfileId, 'phrase');
+    const newGoal = incrementWeeklyGoal(activeProfileId, 'phrase', sessionId);
+    if (newGoal) setWeeklyGoalState(newGoal);
   }, [activeProfileId]);
 
   const removePhraseFromReview = useCallback((phraseId: string) => {

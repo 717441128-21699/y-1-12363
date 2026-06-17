@@ -44,6 +44,13 @@ const GamePlay: React.FC = () => {
   const startTimeRef = useRef<number>(0);
   const beatTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const currentNoteIndexRef = useRef(0);
+  const sessionIdRef = useRef<string>('');
+  const savedRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    sessionIdRef.current = 'wg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    savedRef.current = false;
+  }, [gameState.currentLevel]);
 
   useEffect(() => {
     if (level) {
@@ -275,20 +282,34 @@ const GamePlay: React.FC = () => {
   };
 
   const finishGame = () => {
-    if (!level) return;
-    
+    if (!level || savedRef.current) return;
+    savedRef.current = true;
+
     const levelNotes = [...allLevelNotes];
     const accuracy = calculateAccuracy(levelNotes);
     const stars = calculateStars(accuracy, level.starThreshold);
-    
+
     setGameState(prev => ({ ...prev, stars }));
-    completeLevel(level.id, stars, gameState.score, accuracy);
-    
+    completeLevel(level.id, stars, gameState.score, accuracy, sessionIdRef.current);
+
     if (stars === 3) {
       updateTask('task3', 1);
     }
-    
+
     setGamePhase('finished');
+  };
+
+  const handlePlayAgain = () => {
+    resetAllLevelNotes();
+    sessionIdRef.current = 'wg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    savedRef.current = false;
+    setGameState(prev => ({ ...prev, currentWordIndex: 0, score: 0, combo: 0, maxCombo: 0, stars: 0, mistakes: [] }));
+    setGamePhase('ready');
+    setRecordingBlob(null);
+    setIsReplaying(false);
+    setHasShield(false);
+    setDoubleScore(false);
+    setSlowMode(false);
   };
 
   const startRecording = async () => {
@@ -438,11 +459,7 @@ const GamePlay: React.FC = () => {
           </div>
 
           <div className="finished-buttons">
-            <button className="btn btn-secondary" onClick={() => {
-              resetAllLevelNotes();
-              setGameState(prev => ({ ...prev, currentWordIndex: 0, score: 0, combo: 0, maxCombo: 0, stars: 0, mistakes: [] }));
-              setGamePhase('ready');
-            }}>
+            <button className="btn btn-secondary" onClick={handlePlayAgain}>
               🔄 再来一次
             </button>
             <button className="btn btn-primary" onClick={backToLevels}>

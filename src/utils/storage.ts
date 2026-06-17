@@ -111,7 +111,7 @@ export const createProfile = (name: string): ChildProfile => {
     name,
     avatar,
     createdAt: today,
-    weeklyGoal: { wordTarget: 5, phraseTarget: 5, weekStart: monday, wordDone: 0, phraseDone: 0 }
+    weeklyGoal: { wordTarget: 5, phraseTarget: 5, weekStart: monday, wordDone: 0, phraseDone: 0, countedSessions: [] }
   };
   profiles.push(profile);
   saveProfiles(profiles);
@@ -140,15 +140,22 @@ export const updateWeeklyGoal = (profileId: string | null, goal: Partial<WeeklyG
   saveProfiles(profiles);
 };
 
-export const incrementWeeklyGoal = (profileId: string | null, type: 'word' | 'phrase'): void => {
-  if (!profileId) return;
+export const incrementWeeklyGoal = (profileId: string | null, type: 'word' | 'phrase', sessionId: string = ''): WeeklyGoal | null => {
+  if (!profileId) return null;
   const profiles = loadProfiles();
   const idx = profiles.findIndex(p => p.id === profileId);
-  if (idx < 0) return;
+  if (idx < 0) return null;
   const p = profiles[idx];
   const ws = getWeekStart(new Date().toISOString().split('T')[0]);
   if (p.weeklyGoal.weekStart !== ws) {
-    p.weeklyGoal = { ...p.weeklyGoal, weekStart: ws, wordDone: 0, phraseDone: 0 };
+    p.weeklyGoal = { ...p.weeklyGoal, weekStart: ws, wordDone: 0, phraseDone: 0, countedSessions: [] };
+  }
+  p.weeklyGoal.countedSessions = p.weeklyGoal.countedSessions || [];
+  if (sessionId && p.weeklyGoal.countedSessions.includes(sessionId)) {
+    return p.weeklyGoal;
+  }
+  if (sessionId) {
+    p.weeklyGoal.countedSessions = [...p.weeklyGoal.countedSessions, sessionId];
   }
   if (type === 'word') {
     p.weeklyGoal.wordDone++;
@@ -157,6 +164,7 @@ export const incrementWeeklyGoal = (profileId: string | null, type: 'word' | 'ph
   }
   profiles[idx] = p;
   saveProfiles(profiles);
+  return p.weeklyGoal;
 };
 
 export const getProfileGoal = (profileId: string | null): WeeklyGoal | null => {
@@ -166,8 +174,9 @@ export const getProfileGoal = (profileId: string | null): WeeklyGoal | null => {
   if (!p) return null;
   const ws = getWeekStart(new Date().toISOString().split('T')[0]);
   if (p.weeklyGoal.weekStart !== ws) {
-    return { ...p.weeklyGoal, weekStart: ws, wordDone: 0, phraseDone: 0 };
+    return { ...p.weeklyGoal, weekStart: ws, wordDone: 0, phraseDone: 0, countedSessions: [] };
   }
+  p.weeklyGoal.countedSessions = p.weeklyGoal.countedSessions || [];
   return p.weeklyGoal;
 };
 

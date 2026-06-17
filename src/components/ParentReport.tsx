@@ -8,12 +8,141 @@ import { UserProgress, WeeklyGoal } from '../types';
 import { loadProgress } from '../utils/storage';
 import './ParentReport.css';
 
+type ChildOption = { id: string; name: string; avatar: string };
+
+const FAIL_LABELS: Record<string, string> = {
+  stress: '🎯 漏重音',
+  slow: '🐢 节拍慢半拍',
+  miss: '❌ 连续miss'
+};
+
 const ParentReport: React.FC = () => {
   const { setCurrentView, progress, profiles, activeProfile, weeklyGoal, allProfileData } = useGame();
-  const [activeTab, setActiveTab] = useState<'overview' | 'progress' | 'compare' | 'worksheet'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'progress' | 'compare' | 'detail' | 'worksheet' | 'weekly'>('overview');
   const [progressType, setProgressType] = useState<'word' | 'phrase'>('word');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [compareProfileId, setCompareProfileId] = useState<string>('');
+  const [selectedChildId, setSelectedChildId] = useState<string>(activeProfile?.id || '');
+
+  const allChildren: ChildOption[] = [
+    { id: '', name: '默认用户', avatar: '👦' },
+    ...profiles.map(p => ({ id: p.id, name: p.name, avatar: p.avatar }))
+  ];
+
+  const selectedChild = allChildren.find(c => c.id === selectedChildId) || allChildren[0];
+
+  const selectedProgress = useMemo(() => {
+    if (selectedChildId === '') return progress;
+    return loadProgress(selectedChildId);
+  }, [selectedChildId, progress]);
+
+  const selectedGoal = useMemo(() => {
+    if (selectedChildId === '') return weeklyGoal;
+    const p = profiles.find(x => x.id === selectedChildId);
+    return p?.weeklyGoal || null;
+  }, [selectedChildId, profiles, weeklyGoal]);
+
+  const get7DayData = (p: UserProgress) => {
+    const days: {
+      date: string;
+      dayLabel: string;
+      wordCount: number;
+      phraseCount: number;
+      wordAcc: number;
+      phraseAcc: number;
+      reviewStart: number;
+      reviewEnd: number;
+    }[] = [];
+
+    const phraseHistory = p.phraseHistory || [];
+    const reviewCountByDate: Record<string, number> = {};
+
+    for (let i = 13; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      const reviewCount = (phraseHistory.filter(r => r.date <= dateStr && !r.mastered).length)
+        + (p.phraseReview || []).length;
+      reviewCountByDate[dateStr] = reviewCount;
+    }
+
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      const dayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+      const dayLabel = dayLabels[date.getDay()];
+
+      const wordRecords = p.scoreHistory.filter(r => r.type === 'word' && r.date === dateStr);
+      const phraseRecords = p.scoreHistory.filter(r => r.type === 'phrase' && r.date === dateStr);
+      const phraseRecs = phraseHistory.filter(r => r.date === dateStr);
+
+      const wordCount = wordRecords.length;
+      const phraseCount = phraseRecs.length;
+      const wordAcc = wordCount > 0 ? Math.round(wordRecords.reduce((s, r) => s + r.accuracy, 0) / wordCount) : 0;
+      const phraseAcc = phraseCount > 0 ? Math.round(phraseRecs.reduce((s, r) => s + r.accuracy, 0) / phraseCount) : 0;
+
+      const yesterday = new Date(date);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yStr = yesterday.toISOString().split('T')[0];
+
+      days.push({
+        date: dateStr,
+        dayLabel,
+        wordCount,
+        phraseCount,
+        wordAcc,
+        phraseAcc,
+        reviewStart: reviewCountByDate[yStr] || 0,
+        reviewEnd: reviewCountByDate[dateStr] || 0
+      });
+    }
+    return days;
+  };
+
+  const day7Data = useMemo(() => get7DayData(selectedProgress), [selectedProgress]);
+
+  const getWeeklyData = (p: UserProgress, goal: WeeklyGoal | null) => {
+    const ws = new Date();
+    const day = ws.getDay();
+    const diff = ws.getDate() - day + (day === 0 ? -6 : 1);
+    ws.setDate(diff);
+    const weekStart = ws.toISOString().split('T')[0];
+
+    const wordRecs = p.scoreHistory.filter(r => r.type === 'word' && r.date >= weekStart);
+    const phraseRecs = p.phraseHistory?.filter(r => r.date >= weekStart) || [];
+
+    const failCount: Record<string, number> = { stress: 0, slow: 0, miss: 0 };
+    phraseRecs.forEach(r => {
+      (r.failReasons || []).forEach(f => { failCount[f] = (failCount[f] || 0) + 1; });
+    });
+
+    const masteredPhrases = phraseRecs.filter(r => r.mastered).slice(-5).reverse();
+
+    const weekDays = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(ws);
+      d.setDate(d.getDate() + i);
+      const ds = d.toISOString().split('T')[0];
+      weekDays.push({
+        date: ds,
+        dayLabel: ['一', '二', '三', '四', '五', '六', '日'][i],
+        wordCount: wordRecs.filter(r => r.date === ds).length,
+        phraseCount: phraseRecs.filter(r => r.date === ds).length
+      });
+    }
+
+    const failRanking = Object.entries(failCount)
+      .filter(([, c]) => c > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, c]) => ({ key: k, count: c, label: FAIL_LABELS[k] || k }));
+
+    const avgWordAcc = wordRecs.length > 0 ? Math.round(wordRecs.reduce((s, r) => s + r.accuracy, 0) / wordRecs.length) : 0;
+    const avgPhraseAcc = phraseRecs.length > 0 ? Math.round(phraseRecs.reduce((s, r) => s + r.accuracy, 0) / phraseRecs.length) : 0;
+
+    return { weekStart, wordRecs, phraseRecs, failRanking, masteredPhrases, weekDays, avgWordAcc, avgPhraseAcc, goal };
+  };
+
+  const weeklyData = useMemo(() => getWeeklyData(selectedProgress, selectedGoal), [selectedProgress, selectedGoal]);
 
   const formatTime = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
@@ -22,11 +151,11 @@ const ParentReport: React.FC = () => {
     return `${minutes}分钟`;
   };
 
-  const totalStars = Object.values(progress.levelStars).reduce((sum, s) => sum + s, 0);
-  const unlockedLevels = levels.filter(l => progress.levelStars[l.id] !== undefined).length;
+  const totalStars = Object.values(selectedProgress.levelStars).reduce((sum, s) => sum + s, 0);
+  const unlockedLevels = levels.filter(l => selectedProgress.levelStars[l.id] !== undefined).length;
 
-  const wordRecords = progress.scoreHistory.filter(r => r.type === 'word');
-  const phraseHistory = progress.phraseHistory || [];
+  const wordRecords = selectedProgress.scoreHistory.filter(r => r.type === 'word');
+  const phraseHistory = selectedProgress.phraseHistory || [];
 
   const totalPhrasePractice = phraseHistory.length;
   const avgPhraseAccuracy = phraseHistory.length > 0
@@ -34,7 +163,7 @@ const ParentReport: React.FC = () => {
     : 0;
   const recentPhrases = phraseHistory.slice(-5).reverse();
 
-  function buildLast7Days(records: typeof progress.scoreHistory) {
+  function buildLast7Days(records: typeof selectedProgress.scoreHistory) {
     const result: { date: string; scores: number[]; accuracy: number[] }[] = [];
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
@@ -51,25 +180,25 @@ const ParentReport: React.FC = () => {
   }
 
   const recentWordRecords = useMemo(() => {
-    return buildLast7Days(progress.scoreHistory.filter(r => r.type === 'word'));
-  }, [progress.scoreHistory]);
+    return buildLast7Days(selectedProgress.scoreHistory.filter(r => r.type === 'word'));
+  }, [selectedProgress.scoreHistory]);
 
   const recentPhraseRecords = useMemo(() => {
-    return buildLast7Days(progress.scoreHistory.filter(r => r.type === 'phrase'));
-  }, [progress.scoreHistory]);
+    return buildLast7Days(selectedProgress.scoreHistory.filter(r => r.type === 'phrase'));
+  }, [selectedProgress.scoreHistory]);
 
   const categoryStats = useMemo(() => {
     return categories.map(cat => {
       const catWords = words.filter(w => w.category === cat.id);
       const learnedCount = catWords.filter(w =>
-        progress.scoreHistory.some(s => {
+        selectedProgress.scoreHistory.some(s => {
           const level = levels.find(l => l.id === s.levelId);
           return level?.wordIds.includes(w.id);
-        }) || progress.favoriteWords.includes(w.id)
+        }) || selectedProgress.favoriteWords.includes(w.id)
       ).length;
       return { ...cat, total: catWords.length, learned: learnedCount, progress: catWords.length > 0 ? (learnedCount / catWords.length) * 100 : 0 };
     });
-  }, [progress.scoreHistory, progress.favoriteWords]);
+  }, [selectedProgress.scoreHistory, selectedProgress.favoriteWords]);
 
   const getWorksheetWords = () => {
     if (selectedCategory === 'all') return words.slice(0, 12);
@@ -126,7 +255,28 @@ const ParentReport: React.FC = () => {
     );
   };
 
-  const handlePrint = () => window.print();
+  const allCompareData = useMemo(() => {
+    return allProfileData().map(d => {
+      const wordRecs = d.progress.scoreHistory.filter(r => r.type === 'word');
+      const phraseRecs = d.progress.scoreHistory.filter(r => r.type === 'phrase');
+      const ph = d.progress.phraseHistory || [];
+      const d7 = new Date();
+      d7.setDate(d7.getDate() - 7);
+      const d7s = d7.toISOString().split('T')[0];
+      return {
+        profileId: d.profileId,
+        name: d.name,
+        avatar: d.avatar,
+        goal: d.goal,
+        wordCount7: wordRecs.filter(r => r.date >= d7s).length,
+        phraseCount7: phraseRecs.filter(r => r.date >= d7s).length,
+        wordAcc7: wordRecs.length > 0 ? Math.round(wordRecs.reduce((s, r) => s + r.accuracy, 0) / wordRecs.length) : 0,
+        phraseAcc7: ph.length > 0 ? Math.round(ph.reduce((s, r) => s + r.accuracy, 0) / ph.length) : 0,
+        reviewCount: (d.progress.phraseReview || []).length,
+        totalStars: Object.values(d.progress.levelStars).reduce((s, v) => s + v, 0)
+      };
+    });
+  }, [allProfileData]);
 
   const renderWeeklyGoal = (goal: WeeklyGoal | null) => {
     if (!goal) return null;
@@ -153,58 +303,7 @@ const ParentReport: React.FC = () => {
     );
   };
 
-  const compareData = useMemo(() => {
-    if (!compareProfileId && profiles.length > 0) return null;
-    const targetId = compareProfileId || (profiles.length > 0 ? profiles[0].id : '');
-    if (!targetId) return null;
-    const p = profiles.find(x => x.id === targetId);
-    if (!p) return null;
-    const pProgress = loadProgress(targetId);
-    const wordRecs = pProgress.scoreHistory.filter(r => r.type === 'word');
-    const phraseRecs = pProgress.scoreHistory.filter(r => r.type === 'phrase');
-    const ph = pProgress.phraseHistory || [];
-    return {
-      profile: p,
-      goal: p.weeklyGoal,
-      wordCount7: wordRecs.filter(r => {
-        const d = new Date();
-        d.setDate(d.getDate() - 7);
-        return r.date >= d.toISOString().split('T')[0];
-      }).length,
-      phraseCount7: phraseRecs.filter(r => {
-        const d = new Date();
-        d.setDate(d.getDate() - 7);
-        return r.date >= d.toISOString().split('T')[0];
-      }).length,
-      wordAcc7: wordRecs.length > 0 ? Math.round(wordRecs.reduce((s, r) => s + r.accuracy, 0) / wordRecs.length) : 0,
-      phraseAcc7: ph.length > 0 ? Math.round(ph.reduce((s, r) => s + r.accuracy, 0) / ph.length) : 0,
-      reviewCount: (pProgress.phraseReview || []).length,
-      totalStars: Object.values(pProgress.levelStars).reduce((s, v) => s + v, 0)
-    };
-  }, [compareProfileId, profiles]);
-
-  const allCompareData = useMemo(() => {
-    return allProfileData().map(d => {
-      const wordRecs = d.progress.scoreHistory.filter(r => r.type === 'word');
-      const phraseRecs = d.progress.scoreHistory.filter(r => r.type === 'phrase');
-      const ph = d.progress.phraseHistory || [];
-      const d7 = new Date();
-      d7.setDate(d7.getDate() - 7);
-      const d7s = d7.toISOString().split('T')[0];
-      return {
-        profileId: d.profileId,
-        name: d.name,
-        avatar: d.avatar,
-        goal: d.goal,
-        wordCount7: wordRecs.filter(r => r.date >= d7s).length,
-        phraseCount7: phraseRecs.filter(r => r.date >= d7s).length,
-        wordAcc7: wordRecs.length > 0 ? Math.round(wordRecs.reduce((s, r) => s + r.accuracy, 0) / wordRecs.length) : 0,
-        phraseAcc7: ph.length > 0 ? Math.round(ph.reduce((s, r) => s + r.accuracy, 0) / ph.length) : 0,
-        reviewCount: (d.progress.phraseReview || []).length,
-        totalStars: Object.values(d.progress.levelStars).reduce((s, v) => s + v, 0)
-      };
-    });
-  }, [allProfileData]);
+  const handlePrint = () => window.print();
 
   return (
     <div className="parent-container">
@@ -212,7 +311,20 @@ const ParentReport: React.FC = () => {
         <button className="back-btn" onClick={() => setCurrentView('home')}>
           ← 返回
         </button>
-        <h2>👨‍👩‍👧 家长中心</h2>
+        <div className="header-center">
+          <h2>👨‍👩‍👧 家长中心</h2>
+          {allChildren.length > 1 && (
+            <select
+              className="child-selector"
+              value={selectedChildId}
+              onChange={e => setSelectedChildId(e.target.value)}
+            >
+              {allChildren.map(c => (
+                <option key={c.id} value={c.id}>{c.avatar} {c.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
         <div style={{ width: 80 }} />
       </div>
 
@@ -223,11 +335,17 @@ const ParentReport: React.FC = () => {
         <button className={`tab ${activeTab === 'progress' ? 'active' : ''}`} onClick={() => setActiveTab('progress')}>
           📈 成绩曲线
         </button>
+        <button className={`tab ${activeTab === 'detail' ? 'active' : ''}`} onClick={() => setActiveTab('detail')}>
+          📆 近7天详细
+        </button>
         {profiles.length > 0 && (
           <button className={`tab ${activeTab === 'compare' ? 'active' : ''}`} onClick={() => setActiveTab('compare')}>
             👥 孩子对比
           </button>
         )}
+        <button className={`tab ${activeTab === 'weekly' ? 'active' : ''}`} onClick={() => setActiveTab('weekly')}>
+          📰 周报导出
+        </button>
         <button className={`tab ${activeTab === 'worksheet' ? 'active' : ''}`} onClick={() => setActiveTab('worksheet')}>
           📄 练习单
         </button>
@@ -236,13 +354,13 @@ const ParentReport: React.FC = () => {
       <div className="tab-content">
         {activeTab === 'overview' && (
           <div className="overview-section">
-            {renderWeeklyGoal(weeklyGoal)}
+            {renderWeeklyGoal(selectedGoal)}
 
             <div className="stats-grid">
               <div className="stat-card big">
                 <div className="stat-icon">⏱️</div>
                 <div>
-                  <div className="stat-value-large">{formatTime(progress.totalPlayTime)}</div>
+                  <div className="stat-value-large">{formatTime(selectedProgress.totalPlayTime)}</div>
                   <div className="stat-label">累计学习时长</div>
                 </div>
               </div>
@@ -272,8 +390,8 @@ const ParentReport: React.FC = () => {
             <div className="section-title">🎮 单词闯关</div>
             <div className="level-details-grid compact">
               {levels.map(level => {
-                const stars = progress.levelStars[level.id] || 0;
-                const unlocked = progress.levelStars[level.id] !== undefined;
+                const stars = selectedProgress.levelStars[level.id] || 0;
+                const unlocked = selectedProgress.levelStars[level.id] !== undefined;
                 return (
                   <div key={level.id} className={`level-detail-card ${unlocked ? 'unlocked' : 'locked'}`}>
                     <div className="level-number">{level.id}</div>
@@ -300,7 +418,7 @@ const ParentReport: React.FC = () => {
               </div>
               <div className="phrase-stat-row">
                 <span>待复习短语</span>
-                <span className="phrase-stat-value">{(progress.phraseReview || []).length}</span>
+                <span className="phrase-stat-value">{(selectedProgress.phraseReview || []).length}</span>
               </div>
               <div className="phrase-stat-row">
                 <span>已掌握短语</span>
@@ -412,6 +530,101 @@ const ParentReport: React.FC = () => {
           </div>
         )}
 
+        {activeTab === 'detail' && (
+          <div className="detail-section">
+            <div className="detail-header">
+              <span className="detail-title">📆 近7天详细数据 · {selectedChild.avatar} {selectedChild.name}</span>
+            </div>
+
+            <div className="detail-table-wrap">
+              <table className="detail-table">
+                <thead>
+                  <tr>
+                    <th>日期</th>
+                    <th>🎮 单词次数</th>
+                    <th>🔗 短语次数</th>
+                    <th>📊 单词准确率</th>
+                    <th>📊 短语准确率</th>
+                    <th>🔄 待复习变化</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {day7Data.map((d, i) => {
+                    const reviewChange = d.reviewEnd - d.reviewStart;
+                    return (
+                      <tr key={i}>
+                        <td>
+                          <div style={{ fontWeight: 'bold' }}>{d.date}</div>
+                          <div style={{ fontSize: 12, color: '#888' }}>{d.dayLabel}</div>
+                        </td>
+                        <td>
+                          <span className={d.wordCount === 0 ? 'zero-cell' : ''}>{d.wordCount}</span>
+                        </td>
+                        <td>
+                          <span className={d.phraseCount === 0 ? 'zero-cell' : ''}>{d.phraseCount}</span>
+                        </td>
+                        <td>
+                          {d.wordAcc > 0 ? (
+                            <span style={{ color: d.wordAcc >= 60 ? 'var(--success)' : 'var(--warning)' }}>
+                              {d.wordAcc}%
+                            </span>
+                          ) : <span className="zero-cell">-</span>}
+                        </td>
+                        <td>
+                          {d.phraseAcc > 0 ? (
+                            <span style={{ color: d.phraseAcc >= 60 ? 'var(--success)' : 'var(--warning)' }}>
+                              {d.phraseAcc}%
+                            </span>
+                          ) : <span className="zero-cell">-</span>}
+                        </td>
+                        <td>
+                          {reviewChange === 0 ? (
+                            <span className="zero-cell">-</span>
+                          ) : reviewChange > 0 ? (
+                            <span className="change-badge up">+{reviewChange}</span>
+                          ) : (
+                            <span className="change-badge down">{reviewChange}</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="detail-footer">
+                    <td><strong>合计 / 平均</strong></td>
+                    <td><strong>{day7Data.reduce((s, d) => s + d.wordCount, 0)}</strong></td>
+                    <td><strong>{day7Data.reduce((s, d) => s + d.phraseCount, 0)}</strong></td>
+                    <td>
+                      <strong>
+                        {day7Data.filter(d => d.wordAcc > 0).length > 0
+                          ? Math.round(day7Data.filter(d => d.wordAcc > 0).reduce((s, d) => s + d.wordAcc, 0) / day7Data.filter(d => d.wordAcc > 0).length)
+                          : 0}%
+                      </strong>
+                    </td>
+                    <td>
+                      <strong>
+                        {day7Data.filter(d => d.phraseAcc > 0).length > 0
+                          ? Math.round(day7Data.filter(d => d.phraseAcc > 0).reduce((s, d) => s + d.phraseAcc, 0) / day7Data.filter(d => d.phraseAcc > 0).length)
+                          : 0}%
+                      </strong>
+                    </td>
+                    <td>
+                      {day7Data[0] && day7Data[day7Data.length - 1]
+                        ? (day7Data[day7Data.length - 1].reviewEnd - day7Data[0].reviewStart)
+                        : 0}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div className="detail-notice">
+              💡 每日数据从凌晨零点开始重新统计；切换孩子可以查看对应孩子的数据
+            </div>
+          </div>
+        )}
+
         {activeTab === 'compare' && (
           <div className="compare-section">
             <div className="compare-header-row">
@@ -496,6 +709,141 @@ const ParentReport: React.FC = () => {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'weekly' && (
+          <div className="weekly-section">
+            <div className="no-print weekly-controls">
+              <span className="weekly-title">📰 周报 · {selectedChild.avatar} {selectedChild.name}</span>
+              <button className="btn btn-primary print-btn" onClick={handlePrint}>🖨️ 打印周报</button>
+            </div>
+
+            <div className="weekly-report">
+              <div className="wr-header">
+                <h1>📰 英语学习周报</h1>
+                <div className="wr-meta">
+                  <div>👶 姓名：{selectedChild.name}</div>
+                  <div>📅 周期：{weeklyData.weekStart} ~ {new Date().toISOString().split('T')[0]}</div>
+                </div>
+              </div>
+
+              {weeklyData.goal && (
+                <div className="wr-section">
+                  <h2>🎯 本周目标完成度</h2>
+                  <div className="wr-goal-grid">
+                    <div className="wr-goal-card">
+                      <div className="wr-goal-label">🎮 单词闯关</div>
+                      <div className="wr-goal-bignum">
+                        {weeklyData.goal.wordDone}/{weeklyData.goal.wordTarget}
+                      </div>
+                      <div className="wr-goal-bar">
+                        <div className="wr-goal-fill" style={{
+                          width: `${weeklyData.goal.wordTarget > 0 ? Math.min(100, weeklyData.goal.wordDone / weeklyData.goal.wordTarget * 100) : 0}%`
+                        }} />
+                      </div>
+                      <div className="wr-goal-pct">
+                        {weeklyData.goal.wordTarget > 0 ? Math.min(100, Math.round(weeklyData.goal.wordDone / weeklyData.goal.wordTarget * 100)) : 0}%
+                      </div>
+                    </div>
+                    <div className="wr-goal-card">
+                      <div className="wr-goal-label">🔗 短语连读</div>
+                      <div className="wr-goal-bignum">
+                        {weeklyData.goal.phraseDone}/{weeklyData.goal.phraseTarget}
+                      </div>
+                      <div className="wr-goal-bar">
+                        <div className="wr-goal-fill phrase" style={{
+                          width: `${weeklyData.goal.phraseTarget > 0 ? Math.min(100, weeklyData.goal.phraseDone / weeklyData.goal.phraseTarget * 100) : 0}%`
+                        }} />
+                      </div>
+                      <div className="wr-goal-pct">
+                        {weeklyData.goal.phraseTarget > 0 ? Math.min(100, Math.round(weeklyData.goal.phraseDone / weeklyData.goal.phraseTarget * 100)) : 0}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="wr-section">
+                <h2>📈 本周练习趋势</h2>
+                <div className="wr-trend-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>周</th>
+                        {weeklyData.weekDays.map(d => <th key={d.date}>{d.dayLabel}</th>)}
+                        <th>合计</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>🎮 单词</td>
+                        {weeklyData.weekDays.map(d => <td key={d.date}>{d.wordCount}</td>)}
+                        <td><strong>{weeklyData.wordRecs.length}</strong></td>
+                      </tr>
+                      <tr>
+                        <td>🔗 短语</td>
+                        {weeklyData.weekDays.map(d => <td key={d.date}>{d.phraseCount}</td>)}
+                        <td><strong>{weeklyData.phraseRecs.length}</strong></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="wr-summary-row">
+                <div className="wr-summary-card">
+                  <div className="wr-summary-label">单词平均准确率</div>
+                  <div className="wr-summary-value">{weeklyData.avgWordAcc}%</div>
+                </div>
+                <div className="wr-summary-card">
+                  <div className="wr-summary-label">短语平均准确率</div>
+                  <div className="wr-summary-value">{weeklyData.avgPhraseAcc}%</div>
+                </div>
+                <div className="wr-summary-card">
+                  <div className="wr-summary-label">累计星星</div>
+                  <div className="wr-summary-value">{totalStars} ⭐</div>
+                </div>
+              </div>
+
+              {weeklyData.failRanking.length > 0 && (
+                <div className="wr-section">
+                  <h2>📊 低分原因排行</h2>
+                  <div className="wr-fail-ranking">
+                    {weeklyData.failRanking.map((item, i) => (
+                      <div key={item.key} className="wr-fail-item">
+                        <span className="wr-fail-rank">#{i + 1}</span>
+                        <span className="wr-fail-label">{item.label}</span>
+                        <div className="wr-fail-bar">
+                          <div className="wr-fail-fill" style={{ width: `${Math.min(100, item.count * 20)}%` }} />
+                        </div>
+                        <span className="wr-fail-count">{item.count}次</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {weeklyData.masteredPhrases.length > 0 && (
+                <div className="wr-section">
+                  <h2>🎉 最近掌握的短语</h2>
+                  <div className="wr-mastered-list">
+                    {weeklyData.masteredPhrases.map((p, i) => (
+                      <div key={i} className="wr-mastered-item">
+                        <span className="wr-mastered-phrase">{p.phrase}</span>
+                        <span className="wr-mastered-trans">{p.translation}</span>
+                        <span className="wr-mastered-acc">{p.accuracy}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="wr-footer">
+                <div className="wr-footer-left">📅 生成日期：{new Date().toLocaleDateString('zh-CN')}</div>
+                <div className="wr-footer-right">家长签字：_______________</div>
+              </div>
             </div>
           </div>
         )}

@@ -91,6 +91,7 @@ export interface WeeklyGoal {
   weekStart: string;
   wordDone: number;
   phraseDone: number;
+  countedSessions: string[];
 }
 
 export interface Item {

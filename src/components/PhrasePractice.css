@@ -643,3 +643,115 @@
   font-size: 14px;
   opacity: 0.8;
 }
+
+.practice-summary {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.summary-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--dark);
+  margin-bottom: 12px;
+}
+
+.summary-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.summary-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  background: white;
+  border-radius: 10px;
+}
+
+.summary-item.stress {
+  border-left: 3px solid #FF9800;
+}
+
+.summary-item.slow {
+  border-left: 3px solid #2196F3;
+}
+
+.summary-item.miss {
+  border-left: 3px solid #E91E63;
+}
+
+.summary-icon {
+  font-size: 24px;
+}
+
+.summary-text {
+  flex: 1;
+}
+
+.summary-title-small {
+  font-weight: bold;
+  color: var(--dark);
+  font-size: 14px;
+}
+
+.summary-tip {
+  font-size: 13px;
+  color: #666;
+  margin-top: 2px;
+}
+
+.quick-review-section {
+  background: rgba(255, 241, 118, 0.2);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 15px;
+}
+
+.quick-review-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--dark);
+  margin-bottom: 10px;
+}
+
+.quick-review-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.quick-review-btn {
+  border: none;
+  padding: 8px 16px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: bold;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.quick-review-btn:hover {
+  transform: translateY(-2px);
+}
+
+.quick-review-btn.stress {
+  background: #FF9800;
+  color: white;
+}
+
+.quick-review-btn.slow {
+  background: #2196F3;
+  color: white;
+}
+
+.quick-review-btn.miss {
+  background: #E91E63;
+  color: white;
+}
