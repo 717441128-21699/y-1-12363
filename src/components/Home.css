@@ -24,6 +24,23 @@
   opacity: 0.9;
 }
 
+.profile-switch-btn {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 16px;
+  font-weight: bold;
+  margin-top: 8px;
+  font-family: inherit;
+}
+
+.profile-switch-btn:hover {
+  background: rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
+}
+
 .stats-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

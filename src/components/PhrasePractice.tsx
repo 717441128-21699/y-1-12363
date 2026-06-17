@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useGame } from '../context/GameContext';
-import { phrases, Phrase } from '../data/phrases';
+import { phrases, Phrase, getPhraseById } from '../data/phrases';
 import { getWordById } from '../data/words';
 import { audioManager } from '../utils/audio';
 import { calculateHitResult, calculateAccuracy, getResultText, getResultColor } from '../utils/scoring';
@@ -8,7 +8,7 @@ import { HitNote } from '../types';
 import './PhrasePractice.css';
 
 const PhrasePractice: React.FC = () => {
-  const { setCurrentView, addToWrongWords, updateTask } = useGame();
+  const { setCurrentView, completePhrase, removePhraseFromReview, progress, updateTask, addToWrongWords } = useGame();
   
   const [selectedPhrase, setSelectedPhrase] = useState<Phrase | null>(null);
   const [phase, setPhase] = useState<'select' | 'ready' | 'playing' | 'result'>('select');
@@ -18,11 +18,16 @@ const PhrasePractice: React.FC = () => {
   const [bpm] = useState(90);
   const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null);
   const [isReplaying, setIsReplaying] = useState(false);
+  const [showReview, setShowReview] = useState(false);
 
   const animationRef = useRef<number>();
   const startTimeRef = useRef<number>(0);
   const beatTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const currentNoteIndexRef = useRef(0);
+
+  const reviewPhrases = progress.phraseReview
+    .map(id => getPhraseById(id))
+    .filter((p): p is Phrase => p !== undefined);
 
   const generateNotes = useCallback((phrase: Phrase): HitNote[] => {
     const beatInterval = 60 / bpm;
@@ -194,6 +199,14 @@ const PhrasePractice: React.FC = () => {
 
   const accuracy = calculateAccuracy(notes);
 
+  const handlePhraseComplete = () => {
+    if (!selectedPhrase) return;
+    completePhrase(selectedPhrase.id, selectedPhrase.phrase, selectedPhrase.translation, accuracy, 0);
+    if (accuracy < 60) {
+      selectedPhrase.wordIds.forEach(wid => addToWrongWords(wid));
+    }
+  };
+
   const renderNotes = () => {
     const trackHeight = 400;
     const hitLineY = 350;
@@ -220,6 +233,8 @@ const PhrasePractice: React.FC = () => {
     });
   };
 
+  const lastPhraseRecords = progress.phraseHistory.slice(-5).reverse();
+
   return (
     <div className="phrase-practice-container">
       <div className="phrase-header">
@@ -237,33 +252,112 @@ const PhrasePractice: React.FC = () => {
       </div>
 
       {phase === 'select' && (
-        <div className="phrase-list">
-          <p className="phrase-intro">选择一个短语，练习连读发音！把多个单词连起来读，更自然更流利。</p>
-          {phrases.map(phrase => (
-            <div key={phrase.id} className="phrase-card" onClick={() => handleSelectPhrase(phrase)}>
-              <div className="phrase-main">
-                <span className="phrase-text">{phrase.phrase}</span>
-                <span className="phrase-translation">{phrase.translation}</span>
-              </div>
-              <div className="phrase-syllables">
-                {phrase.syllables.map((syl, i) => (
-                  <span key={i} className={`phrase-syl ${phrase.stressIndices.includes(i) ? 'stress' : ''}`}>
-                    {syl}
-                  </span>
-                ))}
-              </div>
-              <div className="phrase-meta">
-                <span className="phrase-difficulty">{'⭐'.repeat(phrase.difficulty)}</span>
-                <span className="phrase-syl-count">{phrase.syllables.length}个音节</span>
-              </div>
-              <button className="phrase-listen-btn" onClick={(e) => {
-                e.stopPropagation();
-                audioManager.speak(phrase.phrase, 0.8);
-              }}>
-                🔊 试听
-              </button>
+        <div className="phrase-select-area">
+          <div className="phrase-tabs">
+            <button 
+              className={`phrase-tab ${!showReview ? 'active' : ''}`}
+              onClick={() => setShowReview(false)}
+            >
+              📖 全部短语
+            </button>
+            <button 
+              className={`phrase-tab review-tab ${showReview ? 'active' : ''}`}
+              onClick={() => setShowReview(true)}
+            >
+              🔄 待复习 ({reviewPhrases.length})
+            </button>
+          </div>
+
+          {!showReview ? (
+            <div className="phrase-list">
+              <p className="phrase-intro">选择一个短语，练习连读发音！把多个单词连起来读，更自然更流利。</p>
+              {phrases.map(phrase => {
+                const lastRecord = [...progress.phraseHistory].reverse().find(r => r.phraseId === phrase.id);
+                return (
+                  <div key={phrase.id} className="phrase-card" onClick={() => handleSelectPhrase(phrase)}>
+                    <div className="phrase-main">
+                      <span className="phrase-text">{phrase.phrase}</span>
+                      <span className="phrase-translation">{phrase.translation}</span>
+                    </div>
+                    <div className="phrase-syllables">
+                      {phrase.syllables.map((syl, i) => (
+                        <span key={i} className={`phrase-syl ${phrase.stressIndices.includes(i) ? 'stress' : ''}`}>
+                          {syl}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="phrase-meta">
+                      <span className="phrase-difficulty">{'⭐'.repeat(phrase.difficulty)}</span>
+                      <span className="phrase-syl-count">{phrase.syllables.length}个音节</span>
+                      {lastRecord && (
+                        <span className={`phrase-last-acc ${lastRecord.accuracy >= 60 ? 'good' : 'low'}`}>
+                          上次: {lastRecord.accuracy}%
+                        </span>
+                      )}
+                    </div>
+                    <button className="phrase-listen-btn" onClick={(e) => {
+                      e.stopPropagation();
+                      audioManager.speak(phrase.phrase, 0.8);
+                    }}>
+                      🔊 试听
+                    </button>
+                  </div>
+                );
+              })}
             </div>
-          ))}
+          ) : (
+            <div className="phrase-list">
+              {reviewPhrases.length === 0 ? (
+                <div className="review-empty">
+                  <div className="empty-icon">🎉</div>
+                  <p>没有待复习的短语</p>
+                  <p className="empty-hint">低分短语会自动进入复习列表</p>
+                </div>
+              ) : (
+                reviewPhrases.map(phrase => (
+                  <div key={phrase.id} className="phrase-card review-card" onClick={() => handleSelectPhrase(phrase)}>
+                    <div className="phrase-main">
+                      <span className="phrase-text">{phrase.phrase}</span>
+                      <span className="phrase-translation">{phrase.translation}</span>
+                    </div>
+                    <div className="phrase-syllables">
+                      {phrase.syllables.map((syl, i) => (
+                        <span key={i} className={`phrase-syl ${phrase.stressIndices.includes(i) ? 'stress' : ''}`}>
+                          {syl}
+                        </span>
+                      ))}
+                    </div>
+                    <button className="phrase-listen-btn" onClick={(e) => {
+                      e.stopPropagation();
+                      audioManager.speak(phrase.phrase, 0.8);
+                    }}>
+                      🔊 试听
+                    </button>
+                    <button className="phrase-pass-btn" onClick={(e) => {
+                      e.stopPropagation();
+                      removePhraseFromReview(phrase.id);
+                    }}>
+                      ✅ 标记达标
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {lastPhraseRecords.length > 0 && (
+            <div className="recent-records">
+              <div className="recent-title">🕐 最近练习</div>
+              {lastPhraseRecords.map((r, i) => (
+                <div key={i} className="recent-item">
+                  <span className="recent-phrase">{r.phrase}</span>
+                  <span className="recent-acc" style={{ color: r.accuracy >= 60 ? 'var(--success)' : 'var(--warning)' }}>
+                    {r.accuracy}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -335,8 +429,15 @@ const PhrasePractice: React.FC = () => {
             <p className="result-translation">{selectedPhrase.translation}</p>
             
             <div className="result-accuracy">
-              准确率: <span style={{ color: accuracy >= 80 ? 'var(--success)' : 'var(--warning)' }}>{accuracy}%</span>
+              准确率: <span style={{ color: accuracy >= 80 ? 'var(--success)' : accuracy >= 60 ? 'var(--warning)' : 'var(--danger)' }}>{accuracy}%</span>
             </div>
+
+            {accuracy < 60 && (
+              <div className="review-notice">📌 准确率较低，已自动加入复习列表</div>
+            )}
+            {accuracy >= 60 && progress.phraseReview.includes(selectedPhrase.id) && (
+              <div className="review-passed">🎉 达标！已从复习列表移出</div>
+            )}
 
             <div className="result-notes">
               {notes.map((note, i) => (
@@ -357,14 +458,8 @@ const PhrasePractice: React.FC = () => {
 
             <div className="result-buttons">
               <button className="btn btn-warning" onClick={handleRetry}>🔄 再练一次</button>
-              <button className="btn btn-secondary" onClick={handleBack}>选择其他短语</button>
+              <button className="btn btn-secondary" onClick={() => { handlePhraseComplete(); handleBack(); }}>选择其他短语</button>
             </div>
-
-            {accuracy < 60 && (
-              <button className="btn btn-danger" onClick={() => selectedPhrase.wordIds.forEach(wid => addToWrongWords(wid))}>
-                📝 加入错词本
-              </button>
-            )}
           </div>
         </div>
       )}

@@ -431,3 +431,145 @@
   gap: 15px;
   justify-content: center;
 }
+
+.phrase-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.phrase-tab {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.phrase-tab.active {
+  background: white;
+  color: var(--dark);
+}
+
+.phrase-tab.review-tab {
+  background: rgba(255, 107, 107, 0.5);
+}
+
+.phrase-tab.review-tab.active {
+  background: var(--primary);
+  color: white;
+}
+
+.phrase-last-acc {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-weight: bold;
+}
+
+.phrase-last-acc.good {
+  background: #d4edda;
+  color: #155724;
+}
+
+.phrase-last-acc.low {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.review-card {
+  border-left: 4px solid var(--primary);
+}
+
+.review-empty {
+  text-align: center;
+  padding: 40px;
+}
+
+.review-empty .empty-icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+}
+
+.review-empty p {
+  color: white;
+  font-size: 16px;
+  margin-bottom: 5px;
+}
+
+.review-empty .empty-hint {
+  opacity: 0.7;
+  font-size: 14px;
+}
+
+.phrase-pass-btn {
+  position: absolute;
+  bottom: 10px;
+  right: 15px;
+  background: linear-gradient(135deg, var(--success), #58D68D);
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.recent-records {
+  margin-top: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  padding: 15px;
+}
+
+.recent-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.recent-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  margin-bottom: 6px;
+}
+
+.recent-phrase {
+  font-weight: bold;
+}
+
+.recent-acc {
+  font-weight: bold;
+}
+
+.review-notice {
+  background: rgba(231, 76, 60, 0.2);
+  border: 1px solid rgba(231, 76, 60, 0.5);
+  border-radius: 10px;
+  padding: 8px 15px;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+.review-passed {
+  background: rgba(46, 204, 113, 0.2);
+  border: 1px solid rgba(46, 204, 113, 0.5);
+  border-radius: 10px;
+  padding: 8px 15px;
+  margin-bottom: 15px;
+  font-size: 14px;
+  color: var(--success);
+}
+
+.phrase-select-area {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}

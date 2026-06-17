@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { UserProgress, Item, GameState, HitNote } from '../types';
-import { loadProgress, saveProgress, updatePlayTime, updateLevelStars, addFavoriteWord, removeFavoriteWord, addWrongWord, removeWrongWord, addScoreRecord, updateDailyTask, claimDailyTask, defaultItems } from '../utils/storage';
+import { UserProgress, Item, GameState, HitNote, ChildProfile } from '../types';
+import { loadProgress, saveProgress, updatePlayTime, updateLevelStars, addFavoriteWord, removeFavoriteWord, addWrongWord, removeWrongWord, addScoreRecord, addPhraseRecord, removeFromPhraseReview, updateDailyTask, claimDailyTask, defaultItems, loadProfiles, saveProfiles, getActiveProfileId, setActiveProfileId, createProfile, deleteProfile } from '../utils/storage';
 import { audioManager } from '../utils/audio';
 
 interface GameContextType {
@@ -15,6 +15,8 @@ interface GameContextType {
   addToWrongWords: (wordId: string) => void;
   removeFromWrongWords: (wordId: string) => void;
   completeLevel: (levelId: number, stars: number, score: number, accuracy: number) => void;
+  completePhrase: (phraseId: string, phrase: string, translation: string, accuracy: number, score: number) => void;
+  removePhraseFromReview: (phraseId: string) => void;
   updateTask: (taskId: string, increment: number) => void;
   claimTask: (taskId: string) => void;
   useItem: (itemId: string) => boolean;
@@ -25,6 +27,11 @@ interface GameContextType {
   allLevelNotes: HitNote[];
   addAllLevelNotes: (notes: HitNote[]) => void;
   resetAllLevelNotes: () => void;
+  profiles: ChildProfile[];
+  activeProfile: ChildProfile | null;
+  switchProfile: (id: string) => void;
+  addProfile: (name: string) => ChildProfile;
+  removeProfile: (id: string) => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -51,7 +58,9 @@ const initialGameState: GameState = {
 };
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [progress, setProgress] = useState<UserProgress>(() => loadProgress());
+  const [profiles, setProfiles] = useState<ChildProfile[]>(() => loadProfiles());
+  const [activeProfileId, setActiveProfileIdState] = useState<string | null>(() => getActiveProfileId());
+  const [progress, setProgress] = useState<UserProgress>(() => loadProgress(getActiveProfileId()));
   const [gameState, setGameState] = useState<GameState>(initialGameState);
   const [items, setItems] = useState<Item[]>(defaultItems.map(i => ({ ...i })));
   const [currentView, setCurrentView] = useState<string>('home');
@@ -59,6 +68,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [allLevelNotes, setAllLevelNotes] = useState<HitNote[]>([]);
   const playTimeRef = useRef<number>(0);
   const timerRef = useRef<number | null>(null);
+
+  const activeProfile = profiles.find(p => p.id === activeProfileId) || null;
 
   useEffect(() => {
     audioManager.init();
@@ -73,7 +84,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (timerRef.current) {
         clearInterval(timerRef.current);
         if (playTimeRef.current > 0) {
-          const updated = updatePlayTime(progress, playTimeRef.current);
+          const updated = updatePlayTime(progress, playTimeRef.current, activeProfileId);
           setProgress(updated);
           playTimeRef.current = 0;
         }
@@ -84,39 +95,51 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearInterval(timerRef.current);
       }
     };
-  }, [gameState.isPlaying, progress]);
+  }, [gameState.isPlaying, progress, activeProfileId]);
 
   const addToFavorites = useCallback((wordId: string) => {
-    setProgress(prev => addFavoriteWord(prev, wordId));
-  }, []);
+    setProgress(prev => addFavoriteWord(prev, wordId, activeProfileId));
+  }, [activeProfileId]);
 
   const removeFromFavorites = useCallback((wordId: string) => {
-    setProgress(prev => removeFavoriteWord(prev, wordId));
-  }, []);
+    setProgress(prev => removeFavoriteWord(prev, wordId, activeProfileId));
+  }, [activeProfileId]);
 
   const addToWrongWords = useCallback((wordId: string) => {
-    setProgress(prev => addWrongWord(prev, wordId));
-  }, []);
+    setProgress(prev => addWrongWord(prev, wordId, activeProfileId));
+  }, [activeProfileId]);
 
   const removeFromWrongWords = useCallback((wordId: string) => {
-    setProgress(prev => removeWrongWord(prev, wordId));
-  }, []);
+    setProgress(prev => removeWrongWord(prev, wordId, activeProfileId));
+  }, [activeProfileId]);
 
   const completeLevel = useCallback((levelId: number, stars: number, score: number, accuracy: number) => {
     setProgress(prev => {
-      let updated = updateLevelStars(prev, levelId, stars);
-      updated = addScoreRecord(updated, levelId, score, accuracy);
+      let updated = updateLevelStars(prev, levelId, stars, activeProfileId);
+      updated = addScoreRecord(updated, levelId, score, accuracy, 'word', activeProfileId);
       return updated;
     });
-  }, []);
+  }, [activeProfileId]);
+
+  const completePhrase = useCallback((phraseId: string, phrase: string, translation: string, accuracy: number, score: number) => {
+    setProgress(prev => {
+      let updated = addPhraseRecord(prev, phraseId, phrase, translation, accuracy, score, activeProfileId);
+      updated = addScoreRecord(updated, 0, score, accuracy, 'phrase', activeProfileId);
+      return updated;
+    });
+  }, [activeProfileId]);
+
+  const removePhraseFromReview = useCallback((phraseId: string) => {
+    setProgress(prev => removeFromPhraseReview(prev, phraseId, activeProfileId));
+  }, [activeProfileId]);
 
   const updateTask = useCallback((taskId: string, increment: number) => {
-    setProgress(prev => updateDailyTask(prev, taskId, increment));
-  }, []);
+    setProgress(prev => updateDailyTask(prev, taskId, increment, activeProfileId));
+  }, [activeProfileId]);
 
   const claimTask = useCallback((taskId: string) => {
-    setProgress(prev => claimDailyTask(prev, taskId));
-  }, []);
+    setProgress(prev => claimDailyTask(prev, taskId, activeProfileId));
+  }, [activeProfileId]);
 
   const useItem = useCallback((itemId: string): boolean => {
     let success = false;
@@ -151,6 +174,37 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAllLevelNotes([]);
   }, []);
 
+  const switchProfile = useCallback((id: string) => {
+    setActiveProfileId(id);
+    setActiveProfileIdState(id);
+    const newProgress = loadProgress(id);
+    setProgress(newProgress);
+    setGameState(initialGameState);
+    setItems(defaultItems.map(i => ({ ...i })));
+    setCurrentView('home');
+  }, []);
+
+  const addProfile = useCallback((name: string): ChildProfile => {
+    const profile = createProfile(name);
+    setProfiles(loadProfiles());
+    return profile;
+  }, []);
+
+  const removeProfileFn = useCallback((id: string) => {
+    deleteProfile(id);
+    setProfiles(loadProfiles());
+    if (id === activeProfileId) {
+      const remaining = loadProfiles();
+      if (remaining.length > 0) {
+        switchProfile(remaining[0].id);
+      } else {
+        setActiveProfileId('');
+        setActiveProfileIdState(null);
+        setProgress(loadProgress(null));
+      }
+    }
+  }, [activeProfileId, switchProfile]);
+
   return (
     <GameContext.Provider
       value={{
@@ -165,6 +219,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addToWrongWords,
         removeFromWrongWords,
         completeLevel,
+        completePhrase,
+        removePhraseFromReview,
         updateTask,
         claimTask,
         useItem,
@@ -174,7 +230,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setHitNotes,
         allLevelNotes,
         addAllLevelNotes,
-        resetAllLevelNotes
+        resetAllLevelNotes,
+        profiles,
+        activeProfile,
+        switchProfile,
+        addProfile,
+        removeProfile: removeProfileFn
       }}
     >
       {children}

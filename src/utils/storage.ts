@@ -1,6 +1,7 @@
-import { UserProgress, DailyTask, ScoreRecord, Item } from '../types';
+import { UserProgress, DailyTask, ScoreRecord, Item, PhraseRecord, ChildProfile } from '../types';
 
-const STORAGE_KEY = 'english_rhythm_game_progress';
+const PROFILES_KEY = 'english_rhythm_profiles';
+const ACTIVE_PROFILE_KEY = 'english_rhythm_active_profile';
 
 const defaultDailyTasks: DailyTask[] = [
   {
@@ -51,6 +52,8 @@ const defaultItems: Item[] = [
   { id: 'item3', name: '慢动作', icon: '🐢', description: '减慢速度5秒', count: 2 }
 ];
 
+const avatars = ['👦', '👧', '🧒', '👶', '🧒🏻', '👦🏽', '👧🏾'];
+
 const getDefaultProgress = (): UserProgress => ({
   totalPlayTime: 0,
   lastPlayDate: '',
@@ -59,12 +62,76 @@ const getDefaultProgress = (): UserProgress => ({
   wrongWords: [],
   dailyTasks: defaultDailyTasks.map(t => ({ ...t })),
   scoreHistory: [],
-  streakDays: 0
+  streakDays: 0,
+  phraseHistory: [],
+  phraseReview: []
 });
 
-export const loadProgress = (): UserProgress => {
+export const loadProfiles = (): ChildProfile[] => {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(PROFILES_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch (e) {
+    console.error('Failed to load profiles:', e);
+  }
+  return [];
+};
+
+export const saveProfiles = (profiles: ChildProfile[]): void => {
+  try {
+    localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+  } catch (e) {
+    console.error('Failed to save profiles:', e);
+  }
+};
+
+export const getActiveProfileId = (): string | null => {
+  try {
+    return localStorage.getItem(ACTIVE_PROFILE_KEY);
+  } catch {
+    return null;
+  }
+};
+
+export const setActiveProfileId = (id: string): void => {
+  try {
+    localStorage.setItem(ACTIVE_PROFILE_KEY, id);
+  } catch (e) {
+    console.error('Failed to set active profile:', e);
+  }
+};
+
+export const createProfile = (name: string): ChildProfile => {
+  const profiles = loadProfiles();
+  const avatar = avatars[profiles.length % avatars.length];
+  const profile: ChildProfile = {
+    id: 'child_' + Date.now(),
+    name,
+    avatar,
+    createdAt: new Date().toISOString().split('T')[0]
+  };
+  profiles.push(profile);
+  saveProfiles(profiles);
+  return profile;
+};
+
+export const deleteProfile = (id: string): void => {
+  const profiles = loadProfiles();
+  saveProfiles(profiles.filter(p => p.id !== id));
+  try {
+    localStorage.removeItem('erp_' + id);
+  } catch {}
+};
+
+const getStorageKey = (profileId: string | null): string => {
+  if (profileId) return 'erp_' + profileId;
+  return 'english_rhythm_game_progress';
+};
+
+export const loadProgress = (profileId: string | null = null): UserProgress => {
+  const key = getStorageKey(profileId);
+  try {
+    const saved = localStorage.getItem(key);
     if (saved) {
       const progress = JSON.parse(saved) as UserProgress;
       const today = new Date().toDateString();
@@ -85,6 +152,13 @@ export const loadProgress = (): UserProgress => {
         ...task,
         claimed: task.claimed || false
       }));
+
+      progress.phraseHistory = progress.phraseHistory || [];
+      progress.phraseReview = progress.phraseReview || [];
+      progress.scoreHistory = (progress.scoreHistory || []).map(r => ({
+        ...r,
+        type: r.type || 'word'
+      }));
       
       return progress;
     }
@@ -94,28 +168,30 @@ export const loadProgress = (): UserProgress => {
   return getDefaultProgress();
 };
 
-export const saveProgress = (progress: UserProgress): void => {
+export const saveProgress = (progress: UserProgress, profileId: string | null = null): void => {
+  const key = getStorageKey(profileId);
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+    localStorage.setItem(key, JSON.stringify(progress));
   } catch (e) {
     console.error('Failed to save progress:', e);
   }
 };
 
-export const updatePlayTime = (progress: UserProgress, seconds: number): UserProgress => {
+export const updatePlayTime = (progress: UserProgress, seconds: number, profileId: string | null = null): UserProgress => {
   const updated = {
     ...progress,
     totalPlayTime: progress.totalPlayTime + seconds,
     lastPlayDate: new Date().toDateString()
   };
-  saveProgress(updated);
+  saveProgress(updated, profileId);
   return updated;
 };
 
 export const updateLevelStars = (
   progress: UserProgress,
   levelId: number,
-  stars: number
+  stars: number,
+  profileId: string | null = null
 ): UserProgress => {
   const currentStars = progress.levelStars[levelId] || 0;
   if (stars <= currentStars) return progress;
@@ -133,45 +209,45 @@ export const updateLevelStars = (
     updated.levelStars[nextLevel] = 0;
   }
   
-  saveProgress(updated);
+  saveProgress(updated, profileId);
   return updated;
 };
 
-export const addFavoriteWord = (progress: UserProgress, wordId: string): UserProgress => {
+export const addFavoriteWord = (progress: UserProgress, wordId: string, profileId: string | null = null): UserProgress => {
   if (progress.favoriteWords.includes(wordId)) return progress;
   const updated = {
     ...progress,
     favoriteWords: [...progress.favoriteWords, wordId]
   };
-  saveProgress(updated);
+  saveProgress(updated, profileId);
   return updated;
 };
 
-export const removeFavoriteWord = (progress: UserProgress, wordId: string): UserProgress => {
+export const removeFavoriteWord = (progress: UserProgress, wordId: string, profileId: string | null = null): UserProgress => {
   const updated = {
     ...progress,
     favoriteWords: progress.favoriteWords.filter(id => id !== wordId)
   };
-  saveProgress(updated);
+  saveProgress(updated, profileId);
   return updated;
 };
 
-export const addWrongWord = (progress: UserProgress, wordId: string): UserProgress => {
+export const addWrongWord = (progress: UserProgress, wordId: string, profileId: string | null = null): UserProgress => {
   if (progress.wrongWords.includes(wordId)) return progress;
   const updated = {
     ...progress,
     wrongWords: [...progress.wrongWords, wordId]
   };
-  saveProgress(updated);
+  saveProgress(updated, profileId);
   return updated;
 };
 
-export const removeWrongWord = (progress: UserProgress, wordId: string): UserProgress => {
+export const removeWrongWord = (progress: UserProgress, wordId: string, profileId: string | null = null): UserProgress => {
   const updated = {
     ...progress,
     wrongWords: progress.wrongWords.filter(id => id !== wordId)
   };
-  saveProgress(updated);
+  saveProgress(updated, profileId);
   return updated;
 };
 
@@ -179,27 +255,79 @@ export const addScoreRecord = (
   progress: UserProgress,
   levelId: number,
   score: number,
-  accuracy: number
+  accuracy: number,
+  type: 'word' | 'phrase' = 'word',
+  profileId: string | null = null
 ): UserProgress => {
   const record: ScoreRecord = {
     date: new Date().toISOString().split('T')[0],
     levelId,
     score,
-    accuracy
+    accuracy,
+    type
   };
   
   const updated = {
     ...progress,
     scoreHistory: [...progress.scoreHistory, record]
   };
-  saveProgress(updated);
+  saveProgress(updated, profileId);
+  return updated;
+};
+
+export const addPhraseRecord = (
+  progress: UserProgress,
+  phraseId: string,
+  phrase: string,
+  translation: string,
+  accuracy: number,
+  score: number,
+  profileId: string | null = null
+): UserProgress => {
+  const record: PhraseRecord = {
+    date: new Date().toISOString().split('T')[0],
+    phraseId,
+    phrase,
+    translation,
+    accuracy,
+    score
+  };
+
+  let updated = {
+    ...progress,
+    phraseHistory: [...(progress.phraseHistory || []), record]
+  };
+
+  if (accuracy < 60) {
+    if (!updated.phraseReview.includes(phraseId)) {
+      updated.phraseReview = [...updated.phraseReview, phraseId];
+    }
+  } else {
+    updated.phraseReview = updated.phraseReview.filter(id => id !== phraseId);
+  }
+
+  saveProgress(updated, profileId);
+  return updated;
+};
+
+export const removeFromPhraseReview = (
+  progress: UserProgress,
+  phraseId: string,
+  profileId: string | null = null
+): UserProgress => {
+  const updated = {
+    ...progress,
+    phraseReview: progress.phraseReview.filter(id => id !== phraseId)
+  };
+  saveProgress(updated, profileId);
   return updated;
 };
 
 export const updateDailyTask = (
   progress: UserProgress,
   taskId: string,
-  increment: number
+  increment: number,
+  profileId: string | null = null
 ): UserProgress => {
   const updatedTasks = progress.dailyTasks.map(task => {
     if (task.id !== taskId || task.completed) return task;
@@ -212,13 +340,14 @@ export const updateDailyTask = (
   });
   
   const updated = { ...progress, dailyTasks: updatedTasks };
-  saveProgress(updated);
+  saveProgress(updated, profileId);
   return updated;
 };
 
 export const claimDailyTask = (
   progress: UserProgress,
-  taskId: string
+  taskId: string,
+  profileId: string | null = null
 ): UserProgress => {
   const updatedTasks = progress.dailyTasks.map(task => {
     if (task.id !== taskId || task.claimed) return task;
@@ -229,7 +358,7 @@ export const claimDailyTask = (
   });
   
   const updated = { ...progress, dailyTasks: updatedTasks };
-  saveProgress(updated);
+  saveProgress(updated, profileId);
   return updated;
 };
 

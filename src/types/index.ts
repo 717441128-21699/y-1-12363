@@ -33,6 +33,15 @@ export interface GameState {
   mistakes: string[];
 }
 
+export interface PhraseRecord {
+  date: string;
+  phraseId: string;
+  phrase: string;
+  translation: string;
+  accuracy: number;
+  score: number;
+}
+
 export interface UserProgress {
   totalPlayTime: number;
   lastPlayDate: string;
@@ -42,6 +51,8 @@ export interface UserProgress {
   dailyTasks: DailyTask[];
   scoreHistory: ScoreRecord[];
   streakDays: number;
+  phraseHistory: PhraseRecord[];
+  phraseReview: string[];
 }
 
 export interface DailyTask {
@@ -60,6 +71,14 @@ export interface ScoreRecord {
   levelId: number;
   score: number;
   accuracy: number;
+  type: 'word' | 'phrase';
+}
+
+export interface ChildProfile {
+  id: string;
+  name: string;
+  avatar: string;
+  createdAt: string;
 }
 
 export interface Item {

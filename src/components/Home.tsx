@@ -3,7 +3,7 @@ import { useGame } from '../context/GameContext';
 import './Home.css';
 
 const Home: React.FC = () => {
-  const { setCurrentView, progress, items } = useGame();
+  const { setCurrentView, progress, items, activeProfile } = useGame();
 
   const formatTime = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
@@ -24,6 +24,9 @@ const Home: React.FC = () => {
           🎵 英语节奏大冒险 🎵
         </h1>
         <p className="subtitle">跟着节拍说英语，越玩越棒！</p>
+        <button className="profile-switch-btn" onClick={() => setCurrentView('childProfile')}>
+          {activeProfile?.avatar || '👦'} {activeProfile?.name || '默认用户'}
+        </button>
       </div>
 
       <div className="stats-row">
