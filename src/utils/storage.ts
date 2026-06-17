@@ -10,7 +10,8 @@ const defaultDailyTasks: DailyTask[] = [
     target: 1,
     current: 0,
     reward: 50,
-    completed: false
+    completed: false,
+    claimed: false
   },
   {
     id: 'task2',
@@ -19,7 +20,8 @@ const defaultDailyTasks: DailyTask[] = [
     target: 10,
     current: 0,
     reward: 100,
-    completed: false
+    completed: false,
+    claimed: false
   },
   {
     id: 'task3',
@@ -28,7 +30,8 @@ const defaultDailyTasks: DailyTask[] = [
     target: 1,
     current: 0,
     reward: 200,
-    completed: false
+    completed: false,
+    claimed: false
   },
   {
     id: 'task4',
@@ -37,7 +40,8 @@ const defaultDailyTasks: DailyTask[] = [
     target: 5,
     current: 0,
     reward: 80,
-    completed: false
+    completed: false,
+    claimed: false
   }
 ];
 
@@ -76,6 +80,11 @@ export const loadProgress = (): UserProgress => {
           progress.streakDays = 1;
         }
       }
+
+      progress.dailyTasks = progress.dailyTasks.map(task => ({
+        ...task,
+        claimed: task.claimed || false
+      }));
       
       return progress;
     }
@@ -199,6 +208,23 @@ export const updateDailyTask = (
       ...task,
       current: newCurrent,
       completed: newCurrent >= task.target
+    };
+  });
+  
+  const updated = { ...progress, dailyTasks: updatedTasks };
+  saveProgress(updated);
+  return updated;
+};
+
+export const claimDailyTask = (
+  progress: UserProgress,
+  taskId: string
+): UserProgress => {
+  const updatedTasks = progress.dailyTasks.map(task => {
+    if (task.id !== taskId || task.claimed) return task;
+    return {
+      ...task,
+      claimed: true
     };
   });
   

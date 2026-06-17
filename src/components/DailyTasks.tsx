@@ -3,12 +3,15 @@ import { useGame } from '../context/GameContext';
 import './DailyTasks.css';
 
 const DailyTasks: React.FC = () => {
-  const { setCurrentView, progress, addItem } = useGame();
+  const { setCurrentView, progress, addItem, claimTask } = useGame();
 
   const completedCount = progress.dailyTasks.filter(t => t.completed).length;
   const totalCount = progress.dailyTasks.length;
 
   const claimReward = (taskId: string, reward: number) => {
+    const task = progress.dailyTasks.find(t => t.id === taskId);
+    if (!task || task.claimed) return;
+    claimTask(taskId);
     addItem('item1', Math.floor(reward / 50));
     addItem('item2', Math.floor(reward / 100));
   };
@@ -72,13 +75,16 @@ const DailyTasks: React.FC = () => {
             <div className="task-reward">
               <span className="reward-label">奖励</span>
               <span className="reward-value">🎁 {task.reward}</span>
-              {task.completed && (
+              {task.completed && !task.claimed && (
                 <button 
                   className="claim-btn"
                   onClick={() => claimReward(task.id, task.reward)}
                 >
                   领取
                 </button>
+              )}
+              {task.claimed && (
+                <span className="claimed-label">已领取 ✓</span>
               )}
             </div>
           </div>

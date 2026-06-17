@@ -77,6 +77,11 @@
   color: var(--dark);
 }
 
+.category-tab.phrase-tab {
+  background: linear-gradient(135deg, #E91E63, #F48FB1);
+  color: white;
+}
+
 .words-grid {
   flex: 1;
   display: grid;

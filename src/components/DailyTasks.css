@@ -178,6 +178,12 @@
   animation: pulse 2s ease infinite;
 }
 
+.claimed-label {
+  font-size: 12px;
+  color: var(--success);
+  font-weight: bold;
+}
+
 .streak-section {
   display: flex;
   gap: 15px;

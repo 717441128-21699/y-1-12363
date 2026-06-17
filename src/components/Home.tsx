@@ -81,6 +81,12 @@ const Home: React.FC = () => {
           <div className="menu-desc">浏览所有单词</div>
         </button>
 
+        <button className="menu-card phrase" onClick={() => setCurrentView('phrasePractice')}>
+          <div className="menu-icon">🔗</div>
+          <div className="menu-title">连读练习</div>
+          <div className="menu-desc">短语连读，更流利！</div>
+        </button>
+
         <button className="menu-card success" onClick={() => setCurrentView('favorites')}>
           <div className="menu-icon">❤️</div>
           <div className="menu-title">我的收藏</div>

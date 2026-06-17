@@ -3,11 +3,36 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "electron:dev": "npx electron .",
+    "electron:build": "tsc && vite build && npx electron-builder",
+    "electron:start": "npx electron ."
+  },
+  "build": {
+    "appId": "com.englishrhythm.game",
+    "productName": "英语节奏大冒险",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "英语节奏大冒险"
+    }
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -17,7 +42,11 @@
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
+    "concurrently": "^10.0.3",
+    "electron": "^28.3.3",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.2.0",
-    "vite": "^5.0.0"
+    "vite": "^5.0.0",
+    "wait-on": "^9.0.10"
   }
 }

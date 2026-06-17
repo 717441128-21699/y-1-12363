@@ -52,6 +52,7 @@ export interface DailyTask {
   current: number;
   reward: number;
   completed: boolean;
+  claimed: boolean;
 }
 
 export interface ScoreRecord {

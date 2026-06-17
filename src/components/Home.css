@@ -107,6 +107,10 @@
   background: linear-gradient(135deg, #9B59B6, #BB8FCE);
 }
 
+.menu-card.phrase {
+  background: linear-gradient(135deg, #E91E63, #F48FB1);
+}
+
 .menu-icon {
   font-size: 48px;
 }

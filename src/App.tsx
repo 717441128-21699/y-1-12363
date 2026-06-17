@@ -8,6 +8,7 @@ import ParentReport from './components/ParentReport';
 import DailyTasks from './components/DailyTasks';
 import FavoriteWords from './components/FavoriteWords';
 import WrongWords from './components/WrongWords';
+import PhrasePractice from './components/PhrasePractice';
 
 const App: React.FC = () => {
   const { currentView } = useGame();
@@ -28,6 +29,8 @@ const App: React.FC = () => {
         return <FavoriteWords />;
       case 'wrongWords':
         return <WrongWords />;
+      case 'phrasePractice':
+        return <PhrasePractice />;
       case 'parent':
         return <ParentReport />;
       default:

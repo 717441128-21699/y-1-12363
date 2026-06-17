@@ -58,6 +58,12 @@ const WordLibrary: React.FC = () => {
 
       <div className="category-tabs">
         <button
+          className="category-tab phrase-tab"
+          onClick={() => setCurrentView('phrasePractice')}
+        >
+          🔗 连读练习
+        </button>
+        <button
           className={`category-tab ${selectedCategory === 'all' ? 'active' : ''}`}
           onClick={() => setSelectedCategory('all')}
         >

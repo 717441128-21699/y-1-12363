@@ -5,7 +5,7 @@ import { categories } from '../data/words';
 import './LevelSelect.css';
 
 const LevelSelect: React.FC = () => {
-  const { setCurrentView, progress, setGameState } = useGame();
+  const { setCurrentView, progress, setGameState, resetAllLevelNotes } = useGame();
 
   const getThemeIcon = (theme: string): string => {
     const cat = categories.find(c => c.id === theme);
@@ -23,6 +23,7 @@ const LevelSelect: React.FC = () => {
   const handleLevelClick = (levelId: number) => {
     if (!isLevelUnlocked(levelId)) return;
     
+    resetAllLevelNotes();
     setGameState(prev => ({
       ...prev,
       currentLevel: levelId,

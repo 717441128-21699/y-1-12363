@@ -20,7 +20,10 @@ const GamePlay: React.FC = () => {
     useItem,
     setCurrentView,
     setHitNotes,
-    hitNotes
+    hitNotes,
+    allLevelNotes,
+    addAllLevelNotes,
+    resetAllLevelNotes
   } = useGame();
 
   const level = getLevelById(gameState.currentLevel || 1);
@@ -200,7 +203,7 @@ const GamePlay: React.FC = () => {
       }));
 
       if (newCombo >= 10) {
-        updateTask('task2', 1);
+        updateTask('task2', 10);
       }
 
       if (newCombo > 0 && newCombo % 5 === 0) {
@@ -234,6 +237,9 @@ const GamePlay: React.FC = () => {
     setGamePhase('wordComplete');
     setGameState(prev => ({ ...prev, isPlaying: false }));
     
+    const resolvedNotes = notes.filter(n => n.result !== null);
+    addAllLevelNotes(resolvedNotes);
+
     const accuracy = calculateAccuracy(notes);
     
     if (accuracy < 60 && currentWord) {
@@ -271,8 +277,8 @@ const GamePlay: React.FC = () => {
   const finishGame = () => {
     if (!level) return;
     
-    const totalNotes = hitNotes.length;
-    const accuracy = calculateAccuracy(notes);
+    const levelNotes = [...allLevelNotes];
+    const accuracy = calculateAccuracy(levelNotes);
     const stars = calculateStars(accuracy, level.starThreshold);
     
     setGameState(prev => ({ ...prev, stars }));
@@ -400,6 +406,9 @@ const GamePlay: React.FC = () => {
   const renderFinishedScreen = () => {
     if (!level) return null;
     
+    const levelNotes = [...allLevelNotes];
+    const finalAccuracy = calculateAccuracy(levelNotes);
+    
     return (
       <div className="finished-screen">
         <div className="finished-card animate-fadeIn">
@@ -423,13 +432,14 @@ const GamePlay: React.FC = () => {
               <div className="result-label">最大连击</div>
             </div>
             <div className="result-item">
-              <div className="result-value">{calculateAccuracy(notes)}%</div>
+              <div className="result-value">{finalAccuracy}%</div>
               <div className="result-label">准确率</div>
             </div>
           </div>
 
           <div className="finished-buttons">
             <button className="btn btn-secondary" onClick={() => {
+              resetAllLevelNotes();
               setGameState(prev => ({ ...prev, currentWordIndex: 0, score: 0, combo: 0, maxCombo: 0, stars: 0, mistakes: [] }));
               setGamePhase('ready');
             }}>

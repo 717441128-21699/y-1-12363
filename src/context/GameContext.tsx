@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { UserProgress, Item, GameState, HitNote } from '../types';
-import { loadProgress, saveProgress, updatePlayTime, updateLevelStars, addFavoriteWord, removeFavoriteWord, addWrongWord, removeWrongWord, addScoreRecord, updateDailyTask, defaultItems } from '../utils/storage';
+import { loadProgress, saveProgress, updatePlayTime, updateLevelStars, addFavoriteWord, removeFavoriteWord, addWrongWord, removeWrongWord, addScoreRecord, updateDailyTask, claimDailyTask, defaultItems } from '../utils/storage';
 import { audioManager } from '../utils/audio';
 
 interface GameContextType {
@@ -16,11 +16,15 @@ interface GameContextType {
   removeFromWrongWords: (wordId: string) => void;
   completeLevel: (levelId: number, stars: number, score: number, accuracy: number) => void;
   updateTask: (taskId: string, increment: number) => void;
+  claimTask: (taskId: string) => void;
   useItem: (itemId: string) => boolean;
   addItem: (itemId: string, count: number) => void;
   setSpeedMultiplier: (speed: number) => void;
   hitNotes: HitNote[];
   setHitNotes: React.Dispatch<React.SetStateAction<HitNote[]>>;
+  allLevelNotes: HitNote[];
+  addAllLevelNotes: (notes: HitNote[]) => void;
+  resetAllLevelNotes: () => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -52,6 +56,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [items, setItems] = useState<Item[]>(defaultItems.map(i => ({ ...i })));
   const [currentView, setCurrentView] = useState<string>('home');
   const [hitNotes, setHitNotes] = useState<HitNote[]>([]);
+  const [allLevelNotes, setAllLevelNotes] = useState<HitNote[]>([]);
   const playTimeRef = useRef<number>(0);
   const timerRef = useRef<number | null>(null);
 
@@ -109,6 +114,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProgress(prev => updateDailyTask(prev, taskId, increment));
   }, []);
 
+  const claimTask = useCallback((taskId: string) => {
+    setProgress(prev => claimDailyTask(prev, taskId));
+  }, []);
+
   const useItem = useCallback((itemId: string): boolean => {
     let success = false;
     setItems(prev => prev.map(item => {
@@ -134,6 +143,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setGameState(prev => ({ ...prev, speedMultiplier: speed }));
   }, []);
 
+  const addAllLevelNotes = useCallback((newNotes: HitNote[]) => {
+    setAllLevelNotes(prev => [...prev, ...newNotes]);
+  }, []);
+
+  const resetAllLevelNotes = useCallback(() => {
+    setAllLevelNotes([]);
+  }, []);
+
   return (
     <GameContext.Provider
       value={{
@@ -149,11 +166,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         removeFromWrongWords,
         completeLevel,
         updateTask,
+        claimTask,
         useItem,
         addItem,
         setSpeedMultiplier,
         hitNotes,
-        setHitNotes
+        setHitNotes,
+        allLevelNotes,
+        addAllLevelNotes,
+        resetAllLevelNotes
       }}
     >
       {children}
